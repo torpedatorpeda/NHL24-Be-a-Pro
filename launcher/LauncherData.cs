@@ -28,7 +28,7 @@ internal sealed class LauncherData {
     public void EnsureReady() {
         if (!File.Exists(Path.Combine(InstallRoot, "defaults", "config.json")) ||
             !File.Exists(Path.Combine(InstallRoot, "defaults", "patches", "nhl24.xml")))
-            throw new IOException("В комплекте нет начальных настроек. Распакуй полный архив R4 целиком.");
+            throw new IOException("В комплекте нет начальных настроек. Распакуй полный архив лаунчера целиком.");
         Directory.CreateDirectory(DataRoot);
         string marker = Path.Combine(DataRoot, "profile.json");
         string legacy = Path.Combine(InstallRoot, "user");

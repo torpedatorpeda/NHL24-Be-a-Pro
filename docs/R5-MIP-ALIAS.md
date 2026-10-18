@@ -1,10 +1,9 @@
 # R5: padded render-target view of an existing mip chain
 
-Status: candidate; full post-match gameplay reproduction pending.
-
-The R5 gameplay attempt stopped at match startup in a separate texel-buffer
-alias assertion, before the original post-match transition could be checked.
-See R6-TEXEL-ALIAS.md for the follow-up correction; R5's mip handling is retained.
+Status: included in R6. The user confirmed a complete Be a Pro match on
+RTX 4060 Ti, including the post-match return to the career menu (2026-10-18).
+R5 alone had stopped at match startup in a separate texel-buffer alias
+assertion. See R6-TEXEL-ALIAS.md for that correction and verification limits.
 
 The reported failure has an existing 1920x1080 B10G11R11 texture with 11 mip
 levels (0xba3500 guest bytes), followed by a single-level render target at the
@@ -58,7 +57,8 @@ as launcher/mip-alias.patch.
   snapshot of the current career are retained locally before gameplay testing.
 - The installed R5 launcher starts the absolute updated runtime executable
   through the ordinary Windows profile. The game boots into the Be a Pro
-  player editor. The post-match transition remains a separate pending check.
+  player editor. The later complete match was checked with R6, which retains
+  this predicate and also corrects the separate texel-buffer assertion.
 
 Reproduce binary checks with the requirements in launcher/requirements.txt:
 

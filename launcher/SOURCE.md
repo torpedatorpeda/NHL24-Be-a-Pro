@@ -1,4 +1,16 @@
-# Complete launcher R4, 2026-10-18
+# Complete launcher R6, 2026-10-18
+
+R6 retains R4's complete packaging/profile storage and R2/R3 renderer changes,
+adds R5's compatible mip-zero view handling and R6's bounded image-to-texel
+buffer synchronization. The user confirmed a full Be a Pro match, including
+startup and returning from results to the career menu, on RTX 4060 Ti.
+The separate RTX 5060 device-loss report remains unresolved. See
+docs/R5-MIP-ALIAS.md, docs/R6-TEXEL-ALIAS.md and docs/DEVICE-LOST.md.
+
+The supported build and full ZIP are described in docs/BUILD.md;
+verification details and limits are in docs/VALIDATION.md.
+
+## Packaging and storage introduced in R4
 
 R4 changes program packaging and profile storage; its native executable and
 shader/memory helpers are unchanged from the published R3 bundle.

@@ -1,3 +1,34 @@
+# R6 gameplay and renderer validation
+
+- On 2026-10-18 the user confirmed that the installed R6 completed a Be a Pro
+  match, including startup and returning from results to the career menu,
+  on RTX 4060 Ti. This is user-reported verification of one session on one
+  machine, not a guarantee for all game states or GPUs.
+- The R6 core is SHA-256
+  `3ca5faab3240fbd0157121d0421ff11c9b86ba1a32f12abf2c4d87af733a9c04`.
+  The supported full build reproduces that core from the pinned original.
+- Thirty-eight cases execute the actual texel-alias hook and helper at both
+  loaded and relocated addresses, checking bounds, the original request
+  offset, full sparse residency call arguments, Windows stack alignment,
+  exception registration and stack unwinding. Existing R5 code and original
+  exception entries remain intact outside the intended hook/metadata changes.
+- An isolated Vulkan transfer probe verifies all 8,294,400 image bytes,
+  a 512-byte view starting 160 bytes inside it, and two unchanged 256-byte
+  neighboring regions. These checks concern data integrity, not gameplay.
+- R5's retained predicate passes 56 mapped-code cases. Its GPU probe verifies
+  all 11 mip levels, including preservation of lower levels after updating
+  mip zero. The original address functions give identical unique addresses
+  for all 2,073,600 visible pixels with both relevant padded heights.
+- Technical details and reproduction: [R5-MIP-ALIAS.md](R5-MIP-ALIAS.md) and
+  [R6-TEXEL-ALIAS.md](R6-TEXEL-ALIAS.md).
+- The separate RTX 5060 report ends in graphics-queue device loss. The
+  supplied log does not identify its root cause or establish that R6 fixes
+  it. See [DEVICE-LOST.md](DEVICE-LOST.md). The original RTX 3070 transition
+  also needs verification on that machine.
+- The full release ZIP is built from an explicit program-asset allowlist.
+  Every entry and its checksum are verified; no game files, saves, personal
+  settings, logs, firmware, keys or dumped console modules are included.
+
 # R4 packaging and storage validation
 
 - A clean isolated profile starts with the packaged defaults and no prior

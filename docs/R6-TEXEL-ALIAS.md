@@ -1,7 +1,10 @@
 # R6: image-backed texel buffer bounds and offsets
 
-Status: candidate; the starting and ending of a full match still need gameplay
-verification. R5's post-match mip handling is retained.
+Status: released after the user confirmed a complete Be a Pro match on
+RTX 4060 Ti, including match startup and returning from the results screen
+to the career menu (2026-10-18). R5's post-match mip handling is retained.
+This verifies one system and one reported session; other GPUs/drivers and
+the separate RTX 5060 device-loss report remain unverified.
 
 The first R5 gameplay attempt stopped at match startup with a different
 assertion: SynchronizeMemoryFromImage rejected texel address 0x11131480a0
