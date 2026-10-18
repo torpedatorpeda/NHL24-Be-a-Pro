@@ -99,11 +99,17 @@ internal sealed class NHL24Launcher : Form {
         StyleCombo(upscaler, 48, 438, 365);
         upscaler.Items.AddRange(new object[] { "Обычное масштабирование", "AMD FSR 1.0" });
         upscaler.SelectedIndex = 1;
-        upscaler.SelectedIndexChanged += delegate { UpdateSharpeningControls(); MarkSettingsChanged(); };
+        upscaler.SelectedIndexChanged += delegate {
+            if (settingsLoaded && upscaler.SelectedIndex != 1) sharpening.Checked = false;
+            UpdateSharpeningControls(); MarkSettingsChanged();
+        };
         sharpening.Text = "Резкость FSR";
         sharpening.SetBounds(455, 408, 265, 30);
         sharpening.BackColor = LauncherTheme.Card;
-        sharpening.CheckedChanged += delegate { UpdateSharpeningControls(); MarkSettingsChanged(); };
+        sharpening.CheckedChanged += delegate {
+            if (settingsLoaded && sharpening.Checked) upscaler.SelectedIndex = 1;
+            UpdateSharpeningControls(); MarkSettingsChanged();
+        };
         Controls.Add(sharpening);
         sharpness.SetBounds(445, 444, 367, 34);
         sharpness.AutoSize = false;
@@ -125,7 +131,7 @@ internal sealed class NHL24Launcher : Form {
         vsync.SetBounds(48, 506, 600, 30);
         Controls.Add(vsync);
         tips.SetToolTip(upscaler, "FSR 1.0 улучшает масштабирование изображения при выводе в большем разрешении.");
-        tips.SetToolTip(sharpening, "Резкость RCAS работает вместе с FSR. Сними галочку, чтобы полностью её отключить.");
+        tips.SetToolTip(sharpening, "Включает AMD FSR 1.0 и регулировку резкости RCAS. Сними галочку, чтобы отключить резкость.");
         tips.SetToolTip(sharpness, "Чем выше значение, тем резче картинка. 0% — минимальная, 100% — максимальная резкость.");
 
         status.SetBounds(50, 576, 762, 42);
@@ -382,6 +388,8 @@ internal sealed class NHL24Launcher : Form {
         UpdateSharpnessValue();
     }
     void LoadSettings() {
+        bool wasLoaded = settingsLoaded;
+        settingsLoaded = false;
         try {
             var gpu = (Dictionary<string, object>)ReadConfig()["GPU"];
             object value;
@@ -392,12 +400,12 @@ internal sealed class NHL24Launcher : Form {
             }
             if (gpu.TryGetValue("present_mode", out value)) vsync.Checked = string.Equals(Convert.ToString(value), "Fifo", StringComparison.OrdinalIgnoreCase);
             upscaler.SelectedIndex = gpu.TryGetValue("fsr_enabled", out value) && Convert.ToBoolean(value) ? 1 : 0;
-            sharpening.Checked = gpu.TryGetValue("rcas_enabled", out value) && Convert.ToBoolean(value);
+            sharpening.Checked = upscaler.SelectedIndex == 1 && gpu.TryGetValue("rcas_enabled", out value) && Convert.ToBoolean(value);
             sharpness.Value = 3000 - Clamp(gpu.TryGetValue("rcas_attenuation", out value) ? Convert.ToInt32(value) : 250, 0, 3000);
         } catch (Exception ex) {
             status.Text = "Не удалось прочитать настройки. Открой папку данных для проверки.";
             tips.SetToolTip(status, ex.Message);
-        }
+        } finally { settingsLoaded = wasLoaded; }
         UpdateSharpeningControls();
     }
     void SaveSettings(bool forLaunch = false) {
@@ -410,7 +418,7 @@ internal sealed class NHL24Launcher : Form {
         gpu["window_height"] = heights[resolution.SelectedIndex];
         gpu["present_mode"] = vsync.Checked ? "Fifo" : "Mailbox";
         gpu["fsr_enabled"] = upscaler.SelectedIndex == 1;
-        gpu["rcas_enabled"] = sharpening.Checked;
+        gpu["rcas_enabled"] = upscaler.SelectedIndex == 1 && sharpening.Checked;
         gpu["rcas_attenuation"] = 3000 - sharpness.Value;
         if (forLaunch) ((Dictionary<string, object>)config["General"])["redzone_patches"] = true;
         var launcherSettings = ReadLauncherSettings();

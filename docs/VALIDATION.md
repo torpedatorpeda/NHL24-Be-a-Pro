@@ -30,6 +30,15 @@
   is inspected after normal Windows Explorer launch. Cards, text, dark
   selector borders, keyboard-focus buttons and stored display values render
   without overlap. Native emulator/helper hashes remain unchanged.
+- Fourteen isolated graphics-settings checks cover loading legacy inactive
+  RCAS without enabling FSR, preserving exact attenuation, enabling FSR and
+  the slider from the checkbox, the displayed percentage and saved config,
+  preserving unrelated settings, lock/unlock around gameplay, independent
+  sharpening disable, clearing RCAS when ordinary scaling is selected,
+  reloading without event-driven changes, and persistence across reopening.
+- In the normally installed launcher, checking sharpness selects FSR and
+  enables the native trackbar; dragging its thumb changes 17% to 61%.
+  This UI probe is closed without saving its temporary display changes.
 
 These checks concern packaging/storage, not new gameplay fixes. R3's remaining
 gameplay/driver verification limits still apply.
@@ -54,6 +63,12 @@ gameplay/driver verification limits still apply.
 Not yet verified: replaying the original transition on the affected RTX 3070,
 a complete Be a Pro match with R3, all drivers, and all image-alias layouts.
 The fix does not suppress the renderer's diagnostic for unknown layouts.
+
+A subsequent post-match log confirms an uncovered overlap variant: an existing
+1920x1080 B10G11R11 image with 11 mip levels overlaps a new image with one mip
+level at the same address. The existing image is still in use. R3 intentionally
+does not accept this layout; the renderer still stops in ResolveOverlap.
+The launcher sharpness correction does not change the native renderer.
 
 The private user logs and local integration-test process data are not
 included in this public repository.
