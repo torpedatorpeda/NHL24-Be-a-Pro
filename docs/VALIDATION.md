@@ -20,7 +20,7 @@
 - The supported full build completes from the pinned base executable and
   its generated ZIP passes internal integrity/content checks.
 - Normal launch from Windows Explorer imports the legacy profile into the
-  ordinary user LocalAppData. The Saves button opens its actual home folder
+  ordinary user LocalAppData. Help / Saves and Career opens its actual home folder
   in Windows Explorer and the four imported user profiles are visible.
 - The development host is an MSIX app: a launcher started as its child used
   a virtualized LocalCache/Local profile behind the same logical AppData path.

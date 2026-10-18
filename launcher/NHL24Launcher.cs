@@ -117,7 +117,7 @@ internal sealed class NHL24Launcher : Form {
         status.Text = gameFolder.Text.Length == 0 ? "Выбери папку NHL 24, чтобы начать." : storage.StartupMessage;
         Controls.Add(status);
         play.Text = "ИГРАТЬ";
-        play.SetBounds(450, 534, 261, 45);
+        play.SetBounds(360, 534, 351, 45);
         play.FlatStyle = FlatStyle.Flat;
         play.FlatAppearance.BorderSize = 0;
         play.BackColor = Color.FromArgb(40, 196, 204);
@@ -126,7 +126,7 @@ internal sealed class NHL24Launcher : Form {
         play.Click += async delegate { await StartGame(); };
         Controls.Add(play);
         save.Text = "Сохранить настройки";
-        save.SetBounds(33, 534, 202, 45);
+        save.SetBounds(33, 534, 300, 45);
         save.BackColor = Color.FromArgb(35, 49, 68);
         save.ForeColor = Color.White;
         save.FlatStyle = FlatStyle.Flat;
@@ -135,9 +135,7 @@ internal sealed class NHL24Launcher : Form {
             catch (Exception ex) { MessageBox.Show(this, ex.Message, "NHL 24 — настройки", MessageBoxButtons.OK, MessageBoxIcon.Information); }
         };
         Controls.Add(save);
-        var saves = MakeButton("Сохранения", 253, 534, 179, 45);
-        saves.Click += delegate { ShowSaves(); };
-        var help = new LinkLabel { Text = "Помощь и журналы", LinkColor = Color.FromArgb(163, 191, 214), ActiveLinkColor = Color.White, AutoSize = true };
+        var help = new LinkLabel { Text = "Помощь", LinkColor = Color.FromArgb(163, 191, 214), ActiveLinkColor = Color.White, AutoSize = true };
         help.SetBounds(33, 604, 190, 24);
         help.LinkClicked += delegate { ShowHelp(); };
         Controls.Add(help);
@@ -176,7 +174,7 @@ internal sealed class NHL24Launcher : Form {
             MessageBox.Show(owner, "Не удалось открыть папку. Путь можно скопировать из этого окна.\n\n" + ex.Message, "Открытие папки", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
     }
-    void ShowSaves() {
+    void ShowSaves(IWin32Window owner) {
         using (var dialog = CreateDialog("Сохранения и карьера", 390)) {
             DialogText(dialog, "Сохранения и карьера", 22, 42, true);
             DialogText(dialog, "Карьера хранится отдельно от программы и остаётся на месте\nпри обновлении лаунчера.", 78, 48);
@@ -191,7 +189,7 @@ internal sealed class NHL24Launcher : Form {
             if (!import.Enabled) tips.SetToolTip(import, "Закрой игру, чтобы импортировать карьеру.");
             import.Click += delegate { if (ImportOldData(dialog)) dialog.Close(); };
             var close = DialogButton(dialog, "Закрыть", 440, 332, 156); close.DialogResult = DialogResult.Cancel; dialog.CancelButton = close;
-            dialog.ShowDialog(this);
+            dialog.ShowDialog(owner);
         }
     }
     bool ImportOldData(IWin32Window owner) {
@@ -237,16 +235,17 @@ internal sealed class NHL24Launcher : Form {
         }
     }
     void ShowHelp() {
-        using (var dialog = CreateDialog("Помощь", 310)) {
-            DialogText(dialog, "Помощь и журналы", 22, 42, true);
-            DialogText(dialog, "Игра не запускается или вылетает? Журналы помогут разобраться.\nНичего не отправляется автоматически.", 78, 52);
-            DialogButton(dialog, "Открыть журнал запуска", 24, 151, 278).Click += delegate {
+        using (var dialog = CreateDialog("Помощь", 374)) {
+            DialogText(dialog, "Помощь", 22, 42, true);
+            DialogText(dialog, "Сохранения, перенос карьеры и журналы запуска.\nНичего не отправляется автоматически.", 78, 52);
+            DialogButton(dialog, "Сохранения и карьера", 24, 151, 572).Click += delegate { ShowSaves(dialog); };
+            DialogButton(dialog, "Открыть журнал запуска", 24, 207, 278).Click += delegate {
                 try { Process.Start(new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "notepad.exe"), "\"" + storage.LogFile + "\"") { UseShellExecute = true }); }
                 catch (Exception ex) { MessageBox.Show(dialog, ex.Message, "Журнал запуска"); }
             };
-            DialogButton(dialog, "Все файлы и журналы", 318, 151, 278).Click += delegate { OpenFolder(dialog, storage.DataRoot); };
-            DialogText(dialog, "FSR и резкость работают при увеличении изображения.\nСовместимость кат-сцен включена; в отдельных сценах FPS ниже.", 210, 48);
-            var close = DialogButton(dialog, "Закрыть", 440, 265, 156); close.DialogResult = DialogResult.Cancel; dialog.CancelButton = close;
+            DialogButton(dialog, "Все файлы и журналы", 318, 207, 278).Click += delegate { OpenFolder(dialog, storage.DataRoot); };
+            DialogText(dialog, "FSR и резкость работают при увеличении изображения.\nСовместимость кат-сцен включена; в отдельных сценах FPS ниже.", 266, 48);
+            var close = DialogButton(dialog, "Закрыть", 440, 324, 156); close.DialogResult = DialogResult.Cancel; dialog.CancelButton = close;
             dialog.ShowDialog(this);
         }
     }

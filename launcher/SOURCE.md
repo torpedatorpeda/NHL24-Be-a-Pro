@@ -20,8 +20,9 @@ rolls back the target backup. A marker prevents automatic re-import on every
 launch. A named mutex prevents two launchers from modifying the same profile.
 
 See docs/BUILD.md for the R4 build and docs/VALIDATION.md for storage checks.
-The main window has one Saves entry; its dialog exposes the career folder,
-backups and a separate import flow. Import validates the selected folder,
+The main window keeps Save Settings and Play as its primary actions; the
+Help link contains Saves and Career, logs and file access. The saves dialog
+exposes the career folder, backups and a separate import flow. Import validates the selected folder,
 explains replacement/backup before the final action, and prevents closing
 while copying. Help and logs are separate from daily launch controls.
 Folder opening explicitly starts the Windows Explorer executable with a
