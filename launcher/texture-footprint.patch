@@ -1,0 +1,45 @@
+--- a/src/video_core/texture_cache/texture_cache.cpp
++++ b/src/video_core/texture_cache/texture_cache.cpp
+@@ -465,6 +465,42 @@
+                 FreeImage(cache_image_id);
+             }
+             return {merged_image_id, -1, -1};
++        }
++
++        const auto& cached_info = cache_image.info;
++        const auto& cached_mip = cached_info.mips_layout[0];
++        const auto& requested_mip = image_info.mips_layout[0];
++        const bool same_single_color_layout =
++            image_info.type == AmdGpu::ImageType::Color2D &&
++            cached_info.type == AmdGpu::ImageType::Color2D &&
++            image_info.resources == SubresourceExtent{1, 1} &&
++            cached_info.resources == SubresourceExtent{1, 1} &&
++            image_info.pixel_format == cached_info.pixel_format &&
++            image_info.size == cached_info.size && image_info.size.depth == 1 &&
++            image_info.size.width != 0 && image_info.size.height != 0 &&
++            image_info.num_bits == cached_info.num_bits &&
++            image_info.num_samples == cached_info.num_samples && image_info.num_samples != 0 &&
++            image_info.pitch == cached_info.pitch && image_info.pitch >= image_info.size.width &&
++            image_info.tile_mode == cached_info.tile_mode &&
++            image_info.array_mode == cached_info.array_mode &&
++            image_info.bank_swizzle == cached_info.bank_swizzle &&
++            image_info.alt_tile == cached_info.alt_tile &&
++            image_info.props.is_volume == cached_info.props.is_volume &&
++            image_info.props.is_tiled == cached_info.props.is_tiled &&
++            image_info.props.is_pow2 == cached_info.props.is_pow2 &&
++            image_info.props.is_block == cached_info.props.is_block &&
++            image_info.props.is_depth == cached_info.props.is_depth &&
++            image_info.props.has_stencil == cached_info.props.has_stencil &&
++            !image_info.props.is_volume && !image_info.props.is_block &&
++            !image_info.props.is_depth && !image_info.props.has_stencil &&
++            cached_mip.offset == 0 && requested_mip.offset == 0 &&
++            cached_mip.size == cached_info.guest_size &&
++            requested_mip.size == image_info.guest_size &&
++            cached_mip.pitch == cached_info.pitch && requested_mip.pitch == image_info.pitch &&
++            cached_mip.height >= image_info.size.height &&
++            requested_mip.height >= cached_mip.height;
++        if (same_single_color_layout && image_info.guest_size > cached_info.guest_size) {
++            return {ExpandImage(image_info, cache_image_id), -1, -1};
+         }
+ 
+         // Enhanced debug logging for unreachable case

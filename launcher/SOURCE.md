@@ -1,0 +1,89 @@
+# Unified launcher R3, 2026-10-18
+
+## Compatible colour-image footprint growth
+
+The new supplied log reaches `TextureCache::ResolveOverlap` with equal guest address, format, visible dimensions, pitch, tiling mode, sample count and one mip/layer, but the declared guest allocation grows from 8.5 MiB to 16 MiB. The renderer previously exhausted its overlap cases and aborted. This is a different final failure from the earlier transfer-queue device loss.
+
+R3 routes matching, uncompressed, single-level and single-layer 2D colour surfaces through the existing `ExpandImage` path when trailing padded rows grow. It verifies addresses, formats, all visible dimensions, samples, bit size, pitch, tile and array modes, bank swizzle, alternate tiling, image properties and mip-zero layout. It rejects smaller or equal footprints, other resource layouts, depth/stencil/compressed surfaces, differing swizzles and insufficient padded rows. There are no game IDs, resolutions, formats, addresses or shader hashes special-cased in the predicate.
+
+`ExpandImage` creates/registers the expanded image, refreshes backing, copies the prior GPU content, marks existing bindings for rebind, frees the old image through the existing cache lifetime path and tracks the expanded guest range. The original fatal diagnostic is retained for unrecognized overlaps; R3 does not treat it as success.
+
+`patch_texture_overlap.py` requires the exact R2 executable, hooks the overlap fallback at RVA `0xe849ef`, adds a 495-byte leaf predicate in a new executable/read-only section and jumps to the existing expansion setup at `0xe7c857` on a match. Other text bytes remain unchanged. `texture-footprint.patch` is the corresponding source change. It applies to the original Windows source with `git apply --ignore-space-change` (the source checkout uses CRLF). The final executable SHA-256 is `6a853e1145430e343a3801e071e1dd740df6795b181a540a1c6108e0b8268864`.
+
+Validation: the mapped actual executable handles the reported descriptor case and three other compatible growth cases, passes the original cache pointer, requested descriptor, output pointer and image ID to `ExpandImage`, and returns the normal result tuple. Thirty-two incompatible variants preserve the original fallback and displaced store. A standalone Vulkan copy probe on RTX 4060 Ti preserves all 2,073,600 pixels / 8,294,400 bytes of a 1920x1080 B10G11R11 image. The supported rebuild script reproduces the same final executable from the pinned original. The game reaches its start screen and is closed normally with exit code 0. These checks do not replace repeating the affected gameplay transition on RTX 3070; full-match regression testing remains pending.
+
+Shader and memory helper DLLs remain byte-for-byte unchanged. The R2 serialized readback policy is retained. R3 has the same display controls and uses one shared update for every computer. The package contains no user directory, game data, saves, firmware, console modules or keys.
+
+## R2 background
+
+# Unified launcher R2, 2026-10-18
+
+R2 selects the renderer's existing graphics-queue readback path for all launches. It is one shared build for all computers. Shader normalization and pooled/pageable memory modules are byte-for-byte unchanged from the previous unified package.
+
+## Readback policy
+
+The supplied public-user log on RTX 3070 ends with a 2.9-second transfer readback wait, followed by `Readback submit failed: ErrorDeviceLost`. It explicitly reports the separate transfer-queue path enabled. This identifies where device loss was observed, not the original cause of the device loss. There is no explicit out-of-memory failure in that log.
+
+The second-queue implementation issues a raw copy, bypassing `Runtime::CopyBuffer` and its buffer-access tracking, and waits on selected per-window write ticks. R2 removes that concurrency risk by selecting the existing `Runtime::CopyBuffer` plus `Scheduler::Finish` branch. Copies participate in runtime hazard tracking, execute on the graphics scheduler and finish before CPU readback. Device-lost errors are not ignored or retried as success. This mitigation may reduce frame rate and is not proof that every cause of device loss has been fixed.
+
+`patch_readback.py` accepts only the validated unified memory executable (SHA-256 `6663bd4553770723c6553d0b7dd37bcd32b93aa5472edd18f5afb6a299720368`). It changes one opcode byte at RVA `0xd89c98`, from conditional branch `75 18` to unconditional `eb 18`, selecting the constructor's existing false store for `transfer_readbacks`. The resulting SHA-256 is `0c4a3e6454787a7b887ec483f1c218b653bfb2c2d7fd147f786c8830ba3a863b`. All other executable bytes remain unchanged. `readback-serialization.patch` gives the source equivalent and passes `git apply --check` against the original tree. The original installation source tree is unchanged.
+
+The launcher also always sets `NHLPORT_READBACK_DRAIN=1`. Old `compatible_cutscenes=false` settings cannot re-enable the second queue, including when the emulator is started directly. Save/Play stores `compatible_cutscenes=true` while preserving other launcher settings. The optional compatibility checkbox is replaced by a status label. Existing resolution, FSR, sharpening and VSync settings remain available. R2 is identified in the UI, launcher log and readback manifest.
+
+Integration verification executes the mapped, actual constructor-selection code without running emulator startup: all 10 combinations of transfer-queue availability and absent/empty/0/1/other environment values select serialized copies. Restoring the original branch in the isolated test reproduces the old queue-selection behavior as a control. A full rebuild from the pinned original executable succeeds. Startup verification on RTX 4060 Ti is performed separately; a full match and reproduction of the reported transition on the affected RTX 3070 still require gameplay verification.
+
+## Display settings and packaging
+
+FSR 1.0 maps to `GPU.fsr_enabled`; RCAS maps to `GPU.rcas_enabled`. The sharpness slider stores `rcas_attenuation = 3000 - position`, preserving exact integers and displaying position / 30 as a percentage. Higher values mean stronger sharpening. Zero is the minimum intensity; the checkbox fully disables sharpening. Both passes only run when the displayed image is larger than the input. They do not lower internal resolution or provide DLSS/FSR 2/3.
+
+Display preferences load from `user/config.json`. Save or Play uses same-directory atomic replacement and preserves unrelated fields. The update contains no user directory, saves, cached shaders or game path. Launcher logs capture revision, graphics settings, process results and fresh tails of local emulator, shader and memory logs. Nothing is transmitted automatically.
+
+## Earlier native changes
+
+# NHL 24 launcher and bounded shader jump-table lowering
+
+## Memory update, 2026-10-18
+
+The supplied friend log ends at a generic Vulkan check with `ErrorOutOfDeviceMemory`, at the end of the second period in Be a Pro. The log establishes allocation failure; it does not identify the exact allocation call or prove a physical VRAM-capacity limit.
+
+`arena_memory_fix.c` enables `VK_EXT_pageable_device_local_memory` and its memory-priority dependency when the driver advertises the extensions and corresponding feature. It retains the original creation path on unsupported drivers and retries the original path if optional extension/feature enabling is rejected. Vulkan paging lets the driver move device-local allocations to host memory under pressure; it does not guarantee every future allocation succeeds. Existing game rendering features and extension names are preserved.
+
+The arena allocator uses 64 MiB chunks and suballocates aligned, non-overlapping ranges. It preserves the original device-address allocation flags. Where the driver explicitly supports a separate host-visible heap for these sparse buffers, it can spill there after a quarter of local heap size (maximum 4 GiB) or an out-of-device-memory failure. NVIDIA RTX 4060 Ti on this PC reports only local memory as compatible for sparse residency, so this direct-host path is unavailable here; driver paging is used instead. Arena allocations get lower memory priority only when that feature was successfully enabled.
+
+`patch_arena_memory.py` accepts only the earlier validated shader-patched executable. It adds imports for the memory helper and adapts device creation, sparse arena allocation and the initial backing offset. The offset is propagated through original backing and sparse-binding records. Original input files are unchanged. The shader module remains unchanged. Logs are local: `memory-fix.log`, plus copies of the final log lines in `launcher.log`.
+
+Validation: 40,000 simulated resident-range requests use 40 allocations with checked alignment, non-overlap and bounds. Failure, unsupported type, exact-size retry, and device-lost paths pass. The actual executable thunks were mapped without starting the game and exercised against callbacks to check Windows calling conventions, original dispatch pointers, output handles and nonzero backing offsets. A real Vulkan device on RTX 4060 Ti was created with paging and memory priority enabled; four suballocations shared one pool across two sparse buffers, and GPU fill/copy/readback verified all 2,097,152 bytes. This does not constitute verification of a complete Be a Pro match or the friend's second-period transition.
+
+Build the same way as below; the updated build script builds both native modules, runs both integration scripts, and generates launcher hashes for the produced binaries. Python dependencies may be installed in the selected environment or a `pythondeps` directory beside the scripts.
+
+Primary reference: https://docs.vulkan.org/refpages/latest/refpages/source/VK_EXT_pageable_device_local_memory.html
+
+This local launcher uses the user's existing NHL24 PC v0.8.3 executable, derived from shadPS4:
+
+- https://github.com/HajDEO/nhl24pc
+- https://github.com/shadps4-emu/shadPS4
+
+The base executable remains subject to GPL-2.0-or-later. The original project license is included in the package. No game data, console modules, keys or downloaded saves are distributed by the source package.
+
+## Files
+
+- `NHL24Launcher.cs`: Russian WinForms launcher, compiled with the Windows .NET Framework C# compiler.
+- `shader_fix.c`: generic preprocessing of bounded, PC-relative GCN jump tables. It recognizes a clamped and scaled index, including a constant bias, validates the table and all destinations, and lowers every recognized indirect branch into direct conditional branches. It checks intervening vector/texture operations for scalar register dependencies and supports overlap between the table-address pair and the loaded-offset pair. Each selected block materializes the original offset registers and executes the original address additions, preserving the registers and SCC. Unrecognized forms are left unchanged.
+- `patch_emulator.py`: reproducible integration into the existing executable. It checks the exact input SHA-256, adds an import for the module, and calls the normalizer at `TranslateProgram` entry with argument registers preserved. It changes only the destination copy.
+- `build_launcher.ps1`: builds the module and launcher, applies the integration, and copies the original runtime DLLs.
+
+The base executable SHA-256 is `2c2af2c8f0dc751e52792517c72140af451f83374624de0b49fba3619751835a`.
+
+## Building
+
+Requirements: Windows x64; Zig 0.13.0; Python 3 with `pefile==2024.8.26`, `capstone==5.0.9`, `keystone-engine==0.9.2`; the C# compiler included with .NET Framework 4.x. The compiler was downloaded from the official Zig distribution and its checksum checked.
+
+Run `build_launcher.ps1` with `-BaseEmulator` pointing to the original `nhl24.exe`, `-Zig` pointing to `zig.exe`, `-Python` pointing to Python, and `-Out` pointing to a new output directory. Copy the user's existing clean `user` template into that directory. The game stays at its existing location, referenced by `user/game_path.txt`.
+
+## Validation
+
+The module eliminates the jump-table memory read and restores the selected offset in the branch stub. Validation against actual captured shader tables covers 16 snow-scene selectors, 29 player-creation selectors and 16 career-transition selectors, three low address values, two high address values and both incoming SCC states (732 combinations), including destination, result registers and outgoing SCC. Multiple tables in a shader, a biased index and overlapping table-address / load-destination pairs are covered. Actual game verification is recorded separately in the package README.
+
+The normal module writes only a short `shader-fix.log` entry per converted jump table. Optional local diagnostic dumps can be enabled by setting the process environment variable `NHL_SHADER_DIAGNOSTICS=1`, or by creating `diagnostics.enabled` next to the launcher; they include shader code and adjacent table memory. They are disabled in ordinary launches. The base emulator's independent `GPU.dump_shaders` option is also disabled in the supplied configuration.
+
+This does not implement arbitrary unbounded computed branches. Normalized code is allocated for the process lifetime. The integration is pinned to one known emulator binary and must not be applied to another version without review.

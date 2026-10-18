@@ -1,0 +1,14 @@
+--- a/src/video_core/buffer_cache/buffer_cache.cpp
++++ b/src/video_core/buffer_cache/buffer_cache.cpp
+@@ -62,10 +62,8 @@ BufferCache::BufferCache(const Vulkan::Instance& instance_, Vulkan::Scheduler& sche
+       stream_buffer{instance, scheduler, MemoryType::Stream, STREAM_BUFFER_SIZE},
+       gds_buffer{instance, 0, GDS_BUFFER_SIZE, MemoryType::Stream, "GDS Buffer"},
+       transfer_semaphore{instance}, memory_semaphore{instance} {
+-    // nhlport: readback copies on a second queue (NHLPORT_READBACK_DRAIN=1 restores Finish()).
+     {
+-        const char* env = std::getenv("NHLPORT_READBACK_DRAIN");
+-        transfer_readbacks = instance.HasTransferQueue() && !(env && env[0] == '1');
++        transfer_readbacks = false;
+         if (transfer_readbacks) {
+             const vk::CommandPoolCreateInfo pool_ci = {
+                 .flags = vk::CommandPoolCreateFlagBits::eTransient |
