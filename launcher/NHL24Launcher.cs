@@ -65,7 +65,7 @@ internal sealed class NHL24Launcher : Form {
         AddLabel("NHL 24", 28, 16, 420, 68, 38, FontStyle.Bold | FontStyle.Italic);
         var subtitle = AddLabel("Be a Pro", 34, 86, 420, 28, 13, FontStyle.Regular);
         subtitle.ForeColor = LauncherTheme.Muted;
-        var version = AddLabel("ЕДИНАЯ СБОРКА  R4", 655, 36, 177, 24, 9, FontStyle.Bold);
+        var version = AddLabel("ЕДИНАЯ СБОРКА  R5", 655, 36, 177, 24, 9, FontStyle.Bold);
         version.TextAlign = ContentAlignment.MiddleCenter;
         version.ForeColor = LauncherTheme.Accent;
 
@@ -166,7 +166,7 @@ internal sealed class NHL24Launcher : Form {
         var retention = AddLabel("Карьера останется при обновлении", 385, 706, 447, 24, 9, FontStyle.Regular);
         retention.TextAlign = ContentAlignment.MiddleRight;
         retention.ForeColor = LauncherTheme.Muted;
-        Log("Unified launcher R4 started; storage=LocalAppData; texture-footprint=expand-compatible; readbacks=graphics-serialized; Windows=" + Environment.OSVersion.VersionString);
+        Log("Unified launcher R5 started; storage=LocalAppData; mip-alias=compatible-base-view; texture-footprint=expand-compatible; readbacks=graphics-serialized; Windows=" + Environment.OSVersion.VersionString);
         LoadSettings();
         settingsLoaded = true;
         mode.SelectedIndexChanged += delegate { MarkSettingsChanged(); };
@@ -454,14 +454,14 @@ internal sealed class NHL24Launcher : Form {
             Log("Start requested; game=" + path);
             if (!File.Exists(path)) throw new InvalidOperationException("В выбранной папке нет eboot.bin. Укажи папку установленной игры на этом компьютере.");
             var expectedHashes = new Dictionary<string, string> {
-                { "nhl24.exe", "6a853e1145430e343a3801e071e1dd740df6795b181a540a1c6108e0b8268864" },
+                { "nhl24.exe", "e11f4e85c12e364ba1dcda884276535b15abdc14b388460dcac7d7a3e8a986e4" },
                 { "nhl_shader_fix.dll", "7a3320c7a645bb9a80a2ca126bf29c54d860dd795db118154a1ef55807941932" },
                 { "nhl_memory_fix.dll", "c9d2f824234b9f2ed7d97b1b5e98e57b8a676b0eef60e575dbe1cc29c41b1160" }
             };
             foreach (var expected in expectedHashes) {
                 using (var sha = SHA256.Create()) using (var input = File.OpenRead(Path.Combine(storage.RuntimeRoot, expected.Key))) {
                     string hash = BitConverter.ToString(sha.ComputeHash(input)).Replace("-", "").ToLowerInvariant();
-                    if (hash != expected.Value) throw new InvalidOperationException("Файл " + expected.Key + " отличается от подготовленной сборки. Распакуй полный архив R4 целиком.");
+                    if (hash != expected.Value) throw new InvalidOperationException("Файл " + expected.Key + " отличается от подготовленной сборки. Распакуй полный архив R5 целиком.");
                 }
             }
             if (Process.GetProcessesByName("nhl24").Length != 0) throw new InvalidOperationException("NHL 24 уже запущена. Закрой игру перед повторным запуском.");

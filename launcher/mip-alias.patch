@@ -1,0 +1,64 @@
+diff --git a/src/video_core/texture_cache/texture_cache.cpp b/src/video_core/texture_cache/texture_cache.cpp
+index 6e608e2..6e665c8 100644
+--- a/src/video_core/texture_cache/texture_cache.cpp
++++ b/src/video_core/texture_cache/texture_cache.cpp
+@@ -503,6 +503,59 @@ std::tuple<ImageId, int, int> TextureCache::ResolveOverlap(const ImageInfo& imag
+             return {ExpandImage(image_info, cache_image_id), -1, -1};
+         }
+
++        // A color target may describe allocation padding beyond an existing mip
++        // chain, while drawing only the same visible base level. Keep the chain
++        // and its live bindings; FindRenderTarget creates the requested mip-zero
++        // view. Changing guest_size alone would break the detiler's mip walk.
++        const bool tiled_color_only =
++            cached_info.props.is_tiled && image_info.props.is_tiled &&
++            !cached_info.props.is_volume && !image_info.props.is_volume &&
++            !cached_info.props.is_pow2 && !image_info.props.is_pow2 &&
++            !cached_info.props.is_block && !image_info.props.is_block &&
++            !cached_info.props.is_depth && !image_info.props.is_depth &&
++            !cached_info.props.has_stencil && !image_info.props.has_stencil;
++        const bool padded_base_view = !merged_image_id && tiled_color_only &&
++            image_info.type == AmdGpu::ImageType::Color2D &&
++            cached_info.type == AmdGpu::ImageType::Color2D &&
++            image_info.pixel_format == vk::Format::eB10G11R11UfloatPack32 &&
++            cached_info.pixel_format == image_info.pixel_format &&
++            image_info.resources == SubresourceExtent{1, 1} &&
++            cached_info.resources.layers == 1 && cached_info.resources.levels >= 2 &&
++            cached_info.resources.levels <= MAX_MIPS &&
++            image_info.size == cached_info.size && image_info.size.depth == 1 &&
++            image_info.size.width != 0 && image_info.size.height != 0 &&
++            image_info.num_bits == 32 && cached_info.num_bits == 32 &&
++            image_info.num_samples == 1 && cached_info.num_samples == 1 &&
++            image_info.pitch == cached_info.pitch && image_info.pitch >= image_info.size.width &&
++            image_info.tile_mode == AmdGpu::TileMode::Thin2DThin &&
++            cached_info.tile_mode == image_info.tile_mode &&
++            image_info.array_mode == AmdGpu::ArrayMode::Array2DTiledThin1 &&
++            cached_info.array_mode == image_info.array_mode &&
++            image_info.bank_swizzle == 0 && cached_info.bank_swizzle == 0 &&
++            !image_info.alt_tile && !cached_info.alt_tile &&
++            (image_info.micro_tiled_mips & 1) == 0 && (cached_info.micro_tiled_mips & 1) == 0 &&
++            requested_mip.offset == 0 && cached_mip.offset == 0 &&
++            requested_mip.pitch == image_info.pitch && cached_mip.pitch == cached_info.pitch &&
++            cached_mip.height >= image_info.size.height &&
++            requested_mip.height >= cached_mip.height &&
++            u64(requested_mip.pitch) * requested_mip.height * 4 == requested_mip.size &&
++            u64(cached_mip.pitch) * cached_mip.height * 4 == cached_mip.size &&
++            requested_mip.size == image_info.guest_size &&
++            image_info.guest_size > cached_info.guest_size;
++        if (padded_base_view) {
++            u64 end = 0;
++            bool valid_chain = true;
++            for (u32 mip = 0; mip < cached_info.resources.levels; ++mip) {
++                const auto& layout = cached_info.mips_layout[mip];
++                valid_chain &= layout.size != 0 && layout.offset == end;
++                end += layout.size;
++                valid_chain &= end <= cached_info.guest_size;
++            }
++            if (valid_chain && end == cached_info.guest_size) {
++                return {cache_image_id, -1, -1};
++            }
++        }
++
+         // Enhanced debug logging for unreachable case
+         // Calculate expected size based on format and dimensions
+         u64 expected_size =

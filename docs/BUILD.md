@@ -1,4 +1,4 @@
-# Build the complete R4 bundle
+# Build the complete R5 bundle
 
 The supported build adapts one pinned original NHL24 PC 0.8.3 Windows x64
 executable. It creates a complete program bundle, including clean defaults;
@@ -21,19 +21,19 @@ Windows runtime DLLs (`msvcp140.dll`, `msvcp140_atomic_wait.dll`,
 `vcruntime140.dll`, `vcruntime140_1.dll`). The script copies only those
 enumerated dependencies, not arbitrary files from an installation.
 It compiles both native modules, applies the shader, arena-memory, readback
-and texture integrations, and generates launcher integrity hashes for the
+texture and mip-alias integrations, and generates launcher integrity hashes for the
 resulting binaries. Another output path/compiler may change helper DLL bytes
 and debug metadata; launcher hashes are regenerated.
 
 The output contains the root `NHL24Launcher.exe`, a `runtime/` directory,
-clean `defaults/` and `NHL24-Be-a-Pro-Full-R4.zip`. The ZIP includes licenses,
+clean `defaults/` and `NHL24-Be-a-Pro-Full-R5.zip`. The ZIP includes licenses,
 instructions, `release.json` and per-file `SHA256SUMS.txt`.
 `package_full.py` uses an explicit asset allowlist and never walks a user
 directory. Build sources/manifests are not copied into the program ZIP.
 To package an already built set:
 
 ```powershell
-python launcher/package_full.py --build 'X:\new-build' --output 'X:\NHL24-Be-a-Pro-Full-R4.zip'
+python launcher/package_full.py --build 'X:\new-build' --output 'X:\NHL24-Be-a-Pro-Full-R5.zip'
 ```
 
 No installed launcher is required by the recipient. Extract the full ZIP
@@ -51,11 +51,11 @@ by copying its contents, and resets those copied profile paths to local storage.
 Imports into an occupied target require UI confirmation and move the previous
 target into a local backup before publishing the imported profile.
 
-Final emulator SHA-256 (unchanged from R3):
-`6a853e1145430e343a3801e071e1dd740df6795b181a540a1c6108e0b8268864`.
+Final R5 emulator SHA-256:
+`e11f4e85c12e364ba1dcda884276535b15abdc14b388460dcac7d7a3e8a986e4`.
 
 The emulator-source folder is an available source snapshot of NHL24 PC, with
-source equivalents of the R2/R3 renderer changes applied. It retains upstream
+source equivalents of the R2/R3/R5 renderer changes applied. It retains upstream
 dependency declarations and licenses; several original external submodule
 directories are absent from the supplied snapshot. A complete CMake build
 needs those upstream dependencies and toolchain. It is distinct from the

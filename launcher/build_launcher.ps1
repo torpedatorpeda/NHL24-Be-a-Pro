@@ -21,8 +21,10 @@ if ($LASTEXITCODE -ne 0) { throw 'Memory integration failed' }
 if ($LASTEXITCODE -ne 0) { throw 'Readback integration failed' }
 & $Python (Join-Path $PSScriptRoot 'patch_texture_overlap.py') --emulator (Join-Path $nhlRuntimeOutput 'nhl24.exe') --output (Join-Path $nhlRuntimeOutput 'nhl24.exe') --manifest (Join-Path $nhlBuildOutput 'texture-patch-manifest.json')
 if ($LASTEXITCODE -ne 0) { throw 'Texture overlap integration failed' }
+& $Python (Join-Path $PSScriptRoot 'patch_mip_alias.py') --emulator (Join-Path $nhlRuntimeOutput 'nhl24.exe') --output (Join-Path $nhlRuntimeOutput 'nhl24.exe') --manifest (Join-Path $nhlBuildOutput 'mip-alias-manifest.json')
+if ($LASTEXITCODE -ne 0) { throw 'Mip alias integration failed' }
 $nhlLauncherSource = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'NHL24Launcher.cs') -Raw
-$nhlLauncherSource = $nhlLauncherSource.Replace('6a853e1145430e343a3801e071e1dd740df6795b181a540a1c6108e0b8268864', (Get-FileHash -LiteralPath (Join-Path $nhlRuntimeOutput 'nhl24.exe')).Hash.ToLowerInvariant())
+$nhlLauncherSource = $nhlLauncherSource.Replace('e11f4e85c12e364ba1dcda884276535b15abdc14b388460dcac7d7a3e8a986e4', (Get-FileHash -LiteralPath (Join-Path $nhlRuntimeOutput 'nhl24.exe')).Hash.ToLowerInvariant())
 $nhlLauncherSource = $nhlLauncherSource.Replace('7a3320c7a645bb9a80a2ca126bf29c54d860dd795db118154a1ef55807941932', (Get-FileHash -LiteralPath (Join-Path $nhlRuntimeOutput 'nhl_shader_fix.dll')).Hash.ToLowerInvariant())
 $nhlLauncherSource = $nhlLauncherSource.Replace('c9d2f824234b9f2ed7d97b1b5e98e57b8a676b0eef60e575dbe1cc29c41b1160', (Get-FileHash -LiteralPath (Join-Path $nhlRuntimeOutput 'nhl_memory_fix.dll')).Hash.ToLowerInvariant())
 $nhlGeneratedSource = Join-Path $nhlBuildOutput 'NHL24Launcher.build.cs'
@@ -34,5 +36,5 @@ foreach ($nhlRuntimeName in @('msvcp140.dll', 'msvcp140_atomic_wait.dll', 'vcrun
     Copy-Item -LiteralPath (Join-Path (Split-Path -Parent $BaseEmulator) $nhlRuntimeName) -Destination $nhlRuntimeOutput
 }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'defaults') -Destination $nhlBuildOutput -Recurse
-& $Python (Join-Path $PSScriptRoot 'package_full.py') --build $nhlBuildOutput --output (Join-Path $nhlBuildOutput 'NHL24-Be-a-Pro-Full-R4.zip')
+& $Python (Join-Path $PSScriptRoot 'package_full.py') --build $nhlBuildOutput --output (Join-Path $nhlBuildOutput 'NHL24-Be-a-Pro-Full-R5.zip')
 if ($LASTEXITCODE -ne 0) { throw 'Full package verification failed' }
