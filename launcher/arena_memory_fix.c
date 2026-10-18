@@ -51,6 +51,46 @@ typedef struct {
 typedef int32_t (*CreateDeviceFn)(void *, const DeviceInfo *, const void *, void **);
 typedef int32_t (*ExtensionsFn)(void *, const char *, uint32_t *, Extension *);
 typedef void (*FeaturesFn)(void *, Features2 *);
+
+typedef struct {
+    uint32_t type;
+    const void *next;
+    uint32_t storage_buffer16, uniform_storage16, push_constant16, input_output16;
+    uint32_t multiview, multiview_geometry, multiview_tessellation;
+    uint32_t variable_pointers_storage, variable_pointers, protected_memory;
+    uint32_t sampler_ycbcr, shader_draw_parameters;
+} Vulkan11Features;
+
+typedef struct {
+    DeviceInfo device;
+    Features2 core;
+    Vulkan11Features vulkan11;
+} Uniform16Request;
+
+_Static_assert(sizeof(Vulkan11Features) == 64, "Vulkan 1.1 feature layout");
+
+// The pinned renderer supplies Features2 -> Vulkan11Features at the head of
+// its creation chain. Copy just this prefix; retain every requested feature,
+// the remaining chain and caller memory, including on a driver failure.
+static const DeviceInfo *prepare_uniform16(void *physical, const DeviceInfo *info,
+                                          FeaturesFn query, Uniform16Request *request) {
+    if (!query || !info->next) return info;
+    const Features2 *core = info->next;
+    if (core->type != 1000059000 || !core->next) return info;
+    const Vulkan11Features *features = core->next;
+    if (features->type != 49 || !features->storage_buffer16 || features->uniform_storage16) return info;
+    Vulkan11Features supported11 = {.type = 49};
+    Features2 supported = {1000059000, &supported11, {0}};
+    query(physical, &supported);
+    if (!supported11.uniform_storage16) return info;
+    request->device = *info;
+    request->core = *core;
+    request->vulkan11 = *features;
+    request->vulkan11.uniform_storage16 = 1;
+    request->core.next = &request->vulkan11;
+    request->device.next = &request->core;
+    return &request->device;
+}
 typedef struct {
     uint64_t memory, size, used;
 } Pool;
@@ -97,6 +137,10 @@ __declspec(dllexport) int32_t CreateDeviceWithPaging(void *physical, const Devic
         "vkEnumerateDeviceExtensionProperties") : NULL;
     FeaturesFn query = loader ? (FeaturesFn)GetProcAddress(loader,
         "vkGetPhysicalDeviceFeatures2") : NULL;
+    Uniform16Request uniform16;
+    const DeviceInfo *requested = prepare_uniform16(physical, info, query, &uniform16);
+    if (requested != info) log_memory("uniform16-enabled", 0, 49, 0);
+    info = requested;
     if (!enumerate || !query || info->extension_count > 4096) goto unchanged;
     uint32_t count = 0;
     if (enumerate(physical, NULL, &count, NULL) || !count || count > 4096) goto unchanged;

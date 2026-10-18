@@ -1,4 +1,15 @@
-# Complete launcher R6, 2026-10-18
+# Complete launcher R7, 2026-10-18
+
+R7 enables advertised uniformAndStorageBuffer16BitAccess in the device
+creation helper. It corrects a Vulkan feature/shader-capability mismatch
+observed during a prior R6 diagnostic startup; its relationship to the
+RTX 5060 coach-scene device loss is not established. No repeat on that
+machine was performed. See docs/R7-UNIFORM16.md for implementation and limits.
+
+The native R6 executable and shader helper are unchanged. Memory/device helper
+source, launcher integrity hashes and full-package metadata are updated.
+
+## Complete launcher R6
 
 R6 retains R4's complete packaging/profile storage and R2/R3 renderer changes,
 adds R5's compatible mip-zero view handling and R6's bounded image-to-texel

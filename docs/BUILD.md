@@ -1,4 +1,4 @@
-# Build the complete R6 bundle
+# Build the complete R7 bundle
 
 The supported build adapts one pinned original NHL24 PC 0.8.3 Windows x64
 executable. It creates a complete program bundle, including clean defaults;
@@ -26,14 +26,14 @@ resulting binaries. Another output path/compiler may change helper DLL bytes
 and debug metadata; launcher hashes are regenerated.
 
 The output contains the root `NHL24Launcher.exe`, a `runtime/` directory,
-clean `defaults/` and `NHL24-Be-a-Pro-Full-R6.zip`. The ZIP includes licenses,
+clean `defaults/` and `NHL24-Be-a-Pro-Full-R7.zip`. The ZIP includes licenses,
 instructions, `release.json` and per-file `SHA256SUMS.txt`.
 `package_full.py` uses an explicit asset allowlist and never walks a user
 directory. Build sources/manifests are not copied into the program ZIP.
 To package an already built set:
 
 ```powershell
-python launcher/package_full.py --build 'X:\new-build' --output 'X:\NHL24-Be-a-Pro-Full-R6.zip'
+python launcher/package_full.py --build 'X:\new-build' --output 'X:\NHL24-Be-a-Pro-Full-R7.zip'
 ```
 
 No installed launcher is required by the recipient. Extract the full ZIP
@@ -51,11 +51,16 @@ by copying its contents, and resets those copied profile paths to local storage.
 Imports into an occupied target require UI confirmation and move the previous
 target into a local backup before publishing the imported profile.
 
-Final R6 emulator SHA-256:
+R7 retains the R6 emulator SHA-256:
 `3ca5faab3240fbd0157121d0421ff11c9b86ba1a32f12abf2c4d87af733a9c04`.
 
+The R7 memory/device helper enables supported 16-bit uniform-buffer access.
+The distributed helper SHA-256 is
+`c41560ed48dceab55df71f801eb250b699f7c9d8bab8fe2ccc08882aeb2e67c5`.
+See R7-UNIFORM16.md for the change and gameplay-verification limits.
+
 The emulator-source folder is an available source snapshot of NHL24 PC, with
-source equivalents of the R2/R3/R5/R6 renderer changes applied. It retains upstream
+source equivalents of the R2/R3/R5/R6/R7 renderer changes applied. It retains upstream
 dependency declarations and licenses; several original external submodule
 directories are absent from the supplied snapshot. A complete CMake build
 needs those upstream dependencies and toolchain. It is distinct from the

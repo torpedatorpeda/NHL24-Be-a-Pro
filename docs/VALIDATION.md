@@ -1,3 +1,17 @@
+# R7 feature-adapter checks
+
+- Fifteen checks cover supported/unsupported/already-enabled uniform16,
+  missing queries or feature prefixes, unknown prefix types, preservation
+  of every unrelated requested field, correct copied links and an unchanged
+  original device/Features2/Vulkan11 chain. The Windows x64 helper compiles.
+- The native executable and shader helper retain their R6 bytes. The memory
+  helper changes only device-creation feature preparation; allocation policy
+  is retained. Full-package contents and checksums are verified.
+- These checks do not establish that the RTX 5060 coach-scene device loss
+  is fixed. There was no additional game/scene verification on that computer.
+  The user requested proceeding without another diagnostic reproduction.
+  See [R7-UNIFORM16.md](R7-UNIFORM16.md).
+
 # R6 gameplay and renderer validation
 
 - On 2026-10-18 the user confirmed that the installed R6 completed a Be a Pro
