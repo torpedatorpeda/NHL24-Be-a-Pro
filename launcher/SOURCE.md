@@ -30,6 +30,11 @@ quoted path. Startup/installation verification must include a normal Windows
 Explorer launch, since packaged parent apps can virtualize AppData for their
 child processes; reading the same logical path from such a parent is not
 proof that the unvirtualized Windows Explorer can access it.
+The R4 visual refresh uses painted cards, a subtle rink header, dark native
+combo fields and rounded buttons with hover/keyboard-focus states. The native
+ComboBox and Button controls retain selection, keyboard and accessibility
+behaviour. Dark title bars are requested per window through DWM, with no
+system theme changes; unsupported Windows versions keep the default frame.
 The earlier native implementation details follow.
 
 # Unified launcher R3, 2026-10-18

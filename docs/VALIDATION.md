@@ -26,6 +26,10 @@
   a virtualized LocalCache/Local profile behind the same logical AppData path.
   File-handle path resolution identified this during UI verification. Final
   installation is launched through ordinary Windows Explorer, not that host.
+- The visual R4 build compiles with the existing Windows C# toolchain and
+  is inspected after normal Windows Explorer launch. Cards, text, dark
+  selector borders, keyboard-focus buttons and stored display values render
+  without overlap. Native emulator/helper hashes remain unchanged.
 
 These checks concern packaging/storage, not new gameplay fixes. R3's remaining
 gameplay/driver verification limits still apply.

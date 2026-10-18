@@ -1,8 +1,10 @@
-﻿// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: GPL-2.0-or-later
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Runtime.InteropServices;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -15,10 +17,10 @@ internal sealed class NHL24Launcher : Form {
     readonly string root = AppDomain.CurrentDomain.BaseDirectory;
     readonly LauncherData storage;
     readonly TextBox gameFolder = new TextBox();
-    readonly ComboBox mode = new ComboBox();
-    readonly ComboBox resolution = new ComboBox();
+    readonly ComboBox mode = new LauncherComboBox();
+    readonly ComboBox resolution = new LauncherComboBox();
     readonly CheckBox vsync = new CheckBox();
-    readonly ComboBox upscaler = new ComboBox();
+    readonly ComboBox upscaler = new LauncherComboBox();
     readonly CheckBox sharpening = new CheckBox();
     readonly TrackBar sharpness = new TrackBar();
     readonly Label sharpnessValue = new Label();
@@ -52,96 +54,112 @@ internal sealed class NHL24Launcher : Form {
     NHL24Launcher(LauncherData data) {
         storage = data;
         Text = "NHL 24 • Be a Pro";
-        Size = new Size(760, 680);
+        DoubleBuffered = true;
+        ClientSize = new Size(860, 738);
         MinimumSize = MaximumSize = Size;
         StartPosition = FormStartPosition.CenterScreen;
-        BackColor = Color.FromArgb(15, 23, 35);
-        ForeColor = Color.White;
+        BackColor = LauncherTheme.Background;
+        ForeColor = LauncherTheme.Text;
         Font = new Font("Segoe UI", 10);
         MaximizeBox = false;
-        AddLabel("NHL 24", 30, 24, 500, 60, 34, FontStyle.Bold);
-        AddLabel("Be a Pro • полная сборка R4", 33, 89, 630, 30, 13, FontStyle.Regular);
-        AddLabel("Папка игры", 33, 145, 600, 22, 10, FontStyle.Regular);
-        gameFolder.SetBounds(33, 174, 560, 30);
-        gameFolder.BackColor = Color.FromArgb(32, 43, 60);
-        gameFolder.ForeColor = Color.White;
+        AddLabel("NHL 24", 28, 16, 420, 68, 38, FontStyle.Bold | FontStyle.Italic);
+        var subtitle = AddLabel("Be a Pro", 34, 86, 420, 28, 13, FontStyle.Regular);
+        subtitle.ForeColor = LauncherTheme.Muted;
+        var version = AddLabel("ЕДИНАЯ СБОРКА  R4", 655, 36, 177, 24, 9, FontStyle.Bold);
+        version.TextAlign = ContentAlignment.MiddleCenter;
+        version.ForeColor = LauncherTheme.Accent;
+
+        AddLabel("Папка игры", 48, 151, 600, 25, 10, FontStyle.Bold);
+        gameFolder.SetBounds(60, 194, 586, 25);
+        gameFolder.BorderStyle = BorderStyle.None;
+        gameFolder.BackColor = LauncherTheme.Field;
+        gameFolder.ForeColor = LauncherTheme.Text;
+        gameFolder.Font = new Font("Segoe UI", 11);
         gameFolder.Text = LoadGamePath();
+        gameFolder.AccessibleName = "Папка игры";
         Controls.Add(gameFolder);
-        var browse = MakeButton("Выбрать…", 606, 172, 105, 32);
+        var browse = MakeButton("Выбрать…", 678, 184, 134, 40);
+        ((LauncherButton)browse).SurfaceColor = LauncherTheme.Card;
         browse.Click += delegate { using (var dialog = new FolderBrowserDialog()) { dialog.SelectedPath = gameFolder.Text; if (dialog.ShowDialog(this) == DialogResult.OK) gameFolder.Text = dialog.SelectedPath; } };
-        AddLabel("Режим окна", 33, 225, 270, 22, 10, FontStyle.Regular);
-        mode.SetBounds(33, 254, 300, 30);
-        mode.DropDownStyle = ComboBoxStyle.DropDownList;
+
+        AddLabel("Изображение", 48, 277, 400, 30, 16, FontStyle.Bold);
+        var applies = AddLabel("Применится при следующем запуске", 459, 286, 353, 20, 9, FontStyle.Regular);
+        applies.ForeColor = LauncherTheme.Muted;
+        applies.TextAlign = ContentAlignment.TopRight;
+        AddLabel("Режим окна", 48, 330, 350, 23, 10, FontStyle.Regular);
+        StyleCombo(mode, 48, 356, 365);
         mode.Items.AddRange(new object[] { "Без рамок", "Оконный" });
         mode.SelectedIndex = 0;
-        Controls.Add(mode);
-        AddLabel("Разрешение вывода", 360, 225, 300, 22, 10, FontStyle.Regular);
-        resolution.SetBounds(360, 254, 230, 30);
-        resolution.DropDownStyle = ComboBoxStyle.DropDownList;
+        AddLabel("Разрешение вывода", 455, 330, 350, 23, 10, FontStyle.Regular);
+        StyleCombo(resolution, 455, 356, 357);
         resolution.Items.AddRange(new object[] { "1280 × 720", "1920 × 1080", "2560 × 1440" });
         resolution.SelectedIndex = 2;
-        Controls.Add(resolution);
-        vsync.Text = "Вертикальная синхронизация";
-        vsync.Checked = true;
-        AddLabel("Апскейлер", 33, 305, 300, 24, 10, FontStyle.Regular);
-        upscaler.SetBounds(33, 337, 300, 30);
-        upscaler.DropDownStyle = ComboBoxStyle.DropDownList;
+
+        AddLabel("Апскейлер", 48, 412, 350, 24, 10, FontStyle.Regular);
+        StyleCombo(upscaler, 48, 438, 365);
         upscaler.Items.AddRange(new object[] { "Обычное масштабирование", "AMD FSR 1.0" });
         upscaler.SelectedIndex = 1;
         upscaler.SelectedIndexChanged += delegate { UpdateSharpeningControls(); MarkSettingsChanged(); };
-        Controls.Add(upscaler);
         sharpening.Text = "Резкость FSR";
-        sharpening.SetBounds(360, 302, 355, 30);
+        sharpening.SetBounds(455, 408, 265, 30);
+        sharpening.BackColor = LauncherTheme.Card;
         sharpening.CheckedChanged += delegate { UpdateSharpeningControls(); MarkSettingsChanged(); };
         Controls.Add(sharpening);
-        sharpness.SetBounds(350, 335, 300, 50);
+        sharpness.SetBounds(445, 444, 367, 34);
+        sharpness.AutoSize = false;
+        sharpness.TickStyle = TickStyle.None;
+        sharpness.BackColor = LauncherTheme.Card;
         sharpness.Minimum = 0;
         sharpness.Maximum = 3000;
-        sharpness.TickFrequency = 500;
         sharpness.SmallChange = 30;
         sharpness.LargeChange = 300;
         sharpness.ValueChanged += delegate { UpdateSharpnessValue(); MarkSettingsChanged(); };
         Controls.Add(sharpness);
-        sharpnessValue.SetBounds(652, 340, 62, 28);
-        sharpnessValue.TextAlign = ContentAlignment.MiddleCenter;
-        sharpnessValue.ForeColor = Color.FromArgb(40, 196, 204);
+        sharpnessValue.SetBounds(740, 411, 72, 24);
+        sharpnessValue.BackColor = LauncherTheme.Card;
+        sharpnessValue.TextAlign = ContentAlignment.MiddleRight;
         Controls.Add(sharpnessValue);
-        tips.SetToolTip(upscaler, "FSR 1.0 улучшает масштабирование изображения при выводе в большем разрешении.");
-        tips.SetToolTip(sharpening, "Дополнительная резкость RCAS работает вместе с FSR. Сними галочку, чтобы полностью её отключить.");
-        tips.SetToolTip(sharpness, "Чем выше значение, тем резче картинка. 0% — минимальная, 100% — максимальная резкость.");
-        vsync.SetBounds(33, 390, 390, 30);
+        vsync.Text = "Вертикальная синхронизация";
+        vsync.Checked = true;
+        vsync.BackColor = LauncherTheme.Card;
+        vsync.SetBounds(48, 506, 600, 30);
         Controls.Add(vsync);
-        AddLabel("Настройки графики применятся при следующем запуске игры.", 33, 430, 680, 24, 9, FontStyle.Regular);
-        status.SetBounds(33, 477, 680, 38);
-        status.ForeColor = Color.FromArgb(163, 191, 214);
+        tips.SetToolTip(upscaler, "FSR 1.0 улучшает масштабирование изображения при выводе в большем разрешении.");
+        tips.SetToolTip(sharpening, "Резкость RCAS работает вместе с FSR. Сними галочку, чтобы полностью её отключить.");
+        tips.SetToolTip(sharpness, "Чем выше значение, тем резче картинка. 0% — минимальная, 100% — максимальная резкость.");
+
+        status.SetBounds(50, 576, 762, 42);
+        status.ForeColor = LauncherTheme.Muted;
+        status.TextAlign = ContentAlignment.MiddleLeft;
         status.Text = gameFolder.Text.Length == 0 ? "Выбери папку NHL 24, чтобы начать." : storage.StartupMessage;
+        status.TextChanged += delegate { Invalidate(new Rectangle(28, 576, 20, 42)); };
         Controls.Add(status);
         play.Text = "ИГРАТЬ";
-        play.SetBounds(360, 534, 351, 45);
+        play.SetBounds(326, 624, 506, 64);
         play.FlatStyle = FlatStyle.Flat;
         play.FlatAppearance.BorderSize = 0;
-        play.BackColor = Color.FromArgb(40, 196, 204);
-        play.ForeColor = Color.FromArgb(10, 22, 32);
-        play.Font = new Font("Segoe UI", 14, FontStyle.Bold);
+        play.BackColor = LauncherTheme.Accent;
+        play.ForeColor = Color.FromArgb(8, 35, 40);
+        play.Font = new Font("Segoe UI", 15, FontStyle.Bold);
         play.Click += async delegate { await StartGame(); };
         Controls.Add(play);
         save.Text = "Сохранить настройки";
-        save.SetBounds(33, 534, 300, 45);
-        save.BackColor = Color.FromArgb(35, 49, 68);
-        save.ForeColor = Color.White;
+        save.SetBounds(28, 634, 278, 54);
+        save.BackColor = LauncherTheme.Field;
+        save.ForeColor = LauncherTheme.Text;
         save.FlatStyle = FlatStyle.Flat;
         save.Click += delegate {
             try { SaveSettings(); status.Text = "Настройки сохранены. Они применятся при следующем запуске игры."; }
             catch (Exception ex) { MessageBox.Show(this, ex.Message, "NHL 24 — настройки", MessageBoxButtons.OK, MessageBoxIcon.Information); }
         };
         Controls.Add(save);
-        var help = new LinkLabel { Text = "Помощь", LinkColor = Color.FromArgb(163, 191, 214), ActiveLinkColor = Color.White, AutoSize = true };
-        help.SetBounds(33, 604, 190, 24);
+        var help = new LinkLabel { Text = "Помощь", LinkColor = LauncherTheme.Muted, ActiveLinkColor = LauncherTheme.Accent, AutoSize = true, LinkBehavior = LinkBehavior.HoverUnderline, Font = new Font("Segoe UI", 9) };
+        help.SetBounds(32, 708, 190, 22);
         help.LinkClicked += delegate { ShowHelp(); };
         Controls.Add(help);
-        var automaticSave = new Label { Text = "Карьера останется при обновлении", ForeColor = Color.FromArgb(163, 191, 214), TextAlign = ContentAlignment.TopRight };
-        automaticSave.SetBounds(305, 604, 406, 24);
-        Controls.Add(automaticSave);
+        var retention = AddLabel("Карьера останется при обновлении", 385, 706, 447, 24, 9, FontStyle.Regular);
+        retention.TextAlign = ContentAlignment.MiddleRight;
+        retention.ForeColor = LauncherTheme.Muted;
         Log("Unified launcher R4 started; storage=LocalAppData; texture-footprint=expand-compatible; readbacks=graphics-serialized; Windows=" + Environment.OSVersion.VersionString);
         LoadSettings();
         settingsLoaded = true;
@@ -151,9 +169,60 @@ internal sealed class NHL24Launcher : Form {
         ActiveControl = save;
     }
 
+    protected override void OnHandleCreated(EventArgs e) {
+        base.OnHandleCreated(e);
+        LauncherTheme.DarkCaption(Handle);
+    }
+    protected override void OnPaint(PaintEventArgs e) {
+        base.OnPaint(e);
+        var g = e.Graphics;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        using (var gradient = new LinearGradientBrush(new Rectangle(0, 0, ClientSize.Width, 120), Color.FromArgb(17, 35, 49), BackColor, 0f))
+            g.FillRectangle(gradient, 0, 0, ClientSize.Width, 120);
+        var saved = g.Save();
+        g.SetClip(new Rectangle(470, 0, 390, 120));
+        g.TranslateTransform(690, 77);
+        g.RotateTransform(-16);
+        using (var ink = new Pen(Color.FromArgb(26, LauncherTheme.Accent), 1.4f)) {
+            using (var rink = LauncherTheme.Round(new Rectangle(-160, -90, 320, 180), 60)) g.DrawPath(ink, rink);
+            g.DrawLine(ink, 0, -90, 0, 90);
+            g.DrawLine(ink, -65, -90, -65, 90);
+            g.DrawLine(ink, 65, -90, 65, 90);
+            g.DrawEllipse(ink, -32, -32, 64, 64);
+            g.DrawEllipse(ink, -132, -26, 52, 52);
+            g.DrawEllipse(ink, 80, -26, 52, 52);
+        }
+        g.Restore(saved);
+        using (var card = new SolidBrush(LauncherTheme.Card)) using (var border = new Pen(LauncherTheme.Border)) {
+            foreach (var bounds in new[] { new Rectangle(28, 134, 804, 108), new Rectangle(28, 258, 804, 302) })
+                using (var shape = LauncherTheme.Round(bounds, 16)) { g.FillPath(card, shape); g.DrawPath(border, shape); }
+        }
+        using (var field = new SolidBrush(LauncherTheme.Field)) using (var shape = LauncherTheme.Round(new Rectangle(48, 186, 610, 36), 8)) g.FillPath(field, shape);
+        using (var border = new Pen(Color.FromArgb(44, 83, 89))) using (var shape = LauncherTheme.Round(new Rectangle(653, 34, 179, 28), 14)) g.DrawPath(border, shape);
+        using (var dot = new SolidBrush(status.Text.StartsWith("Есть изменения", StringComparison.Ordinal) ? Color.FromArgb(236, 185, 98) : LauncherTheme.Accent)) g.FillEllipse(dot, 32, 593, 7, 7);
+    }
+    void StyleCombo(ComboBox combo, int x, int y, int width) {
+        combo.SetBounds(x, y, width, 34);
+        combo.DropDownStyle = ComboBoxStyle.DropDownList;
+        combo.FlatStyle = FlatStyle.Flat;
+        combo.BackColor = LauncherTheme.Field;
+        combo.ForeColor = LauncherTheme.Text;
+        combo.DrawMode = DrawMode.OwnerDrawFixed;
+        combo.ItemHeight = 26;
+        combo.DrawItem += delegate(object sender, DrawItemEventArgs e) {
+            if (e.Index < 0) return;
+            bool selected = (e.State & DrawItemState.Selected) != 0 && (e.State & DrawItemState.ComboBoxEdit) == 0;
+            using (var fill = new SolidBrush(selected ? Color.FromArgb(32, 74, 82) : LauncherTheme.Field)) e.Graphics.FillRectangle(fill, e.Bounds);
+            TextRenderer.DrawText(e.Graphics, Convert.ToString(combo.Items[e.Index]), combo.Font, new Rectangle(e.Bounds.X + 8, e.Bounds.Y, e.Bounds.Width - 12, e.Bounds.Height), combo.Enabled ? LauncherTheme.Text : LauncherTheme.Muted, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+        };
+        Controls.Add(combo);
+    }
+
     Form CreateDialog(string title, int height) {
-        return new Form { Text = title, ClientSize = new Size(620, height), Font = Font, BackColor = BackColor, ForeColor = ForeColor,
+        var dialog = new Form { Text = title, ClientSize = new Size(620, height), Font = Font, BackColor = BackColor, ForeColor = ForeColor,
             FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false, StartPosition = FormStartPosition.CenterParent, ShowInTaskbar = false };
+        dialog.HandleCreated += delegate { LauncherTheme.DarkCaption(dialog.Handle); };
+        return dialog;
     }
     static Label DialogText(Form dialog, string text, int y, int height, bool heading = false) {
         var label = new Label { Text = text, Font = heading ? new Font(dialog.Font.FontFamily, 19, FontStyle.Bold) : dialog.Font };
@@ -250,9 +319,9 @@ internal sealed class NHL24Launcher : Form {
         }
     }
 
-    void AddLabel(string text, int x, int y, int w, int h, float size, FontStyle style) {
-        var label = new Label { Text = text, Font = new Font("Segoe UI", size, style) };
-        label.SetBounds(x, y, w, h); Controls.Add(label);
+    Label AddLabel(string text, int x, int y, int w, int h, float size, FontStyle style) {
+        var label = new Label { Text = text, Font = new Font("Segoe UI", size, style), BackColor = Color.Transparent };
+        label.SetBounds(x, y, w, h); Controls.Add(label); return label;
     }
     Button MakeButton(string text, int x, int y, int w, int h) {
         var button = new LauncherButton { Text = text, BackColor = Color.FromArgb(35, 49, 68), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
@@ -417,15 +486,70 @@ internal sealed class NHL24Launcher : Form {
     }
 }
 
-// Keep disabled actions readable on the dark background; the native disabled
-// text colour can otherwise be almost black on some Windows themes.
+internal static class LauncherTheme {
+    public static readonly Color Background = Color.FromArgb(11, 17, 27);
+    public static readonly Color Card = Color.FromArgb(17, 26, 39);
+    public static readonly Color Field = Color.FromArgb(24, 36, 52);
+    public static readonly Color Border = Color.FromArgb(35, 51, 70);
+    public static readonly Color Text = Color.FromArgb(235, 242, 250);
+    public static readonly Color Muted = Color.FromArgb(141, 161, 183);
+    public static readonly Color Accent = Color.FromArgb(52, 213, 205);
+    public static GraphicsPath Round(Rectangle bounds, int radius) {
+        int diameter = radius * 2;
+        var path = new GraphicsPath();
+        path.AddArc(bounds.X, bounds.Y, diameter, diameter, 180, 90);
+        path.AddArc(bounds.Right - diameter, bounds.Y, diameter, diameter, 270, 90);
+        path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
+        path.AddArc(bounds.X, bounds.Bottom - diameter, diameter, diameter, 90, 90);
+        path.CloseFigure(); return path;
+    }
+    [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
+    public static void DarkCaption(IntPtr window) {
+        try { int enabled = 1; DwmSetWindowAttribute(window, 20, ref enabled, 4); }
+        catch (DllNotFoundException) { } catch (EntryPointNotFoundException) { }
+    }
+}
+
+// Retain native selection, keyboard and accessibility behaviour, while painting
+// the field border and arrow consistently with the surrounding dark cards.
+internal sealed class LauncherComboBox : ComboBox {
+    protected override void OnGotFocus(EventArgs e) { base.OnGotFocus(e); Invalidate(); }
+    protected override void OnLostFocus(EventArgs e) { base.OnLostFocus(e); Invalidate(); }
+    protected override void WndProc(ref Message m) {
+        base.WndProc(ref m);
+        if (m.Msg != 0x000f || !IsHandleCreated || Width < 24 || Height < 8) return;
+        using (var g = Graphics.FromHwnd(Handle)) {
+            using (var arrow = new SolidBrush(BackColor)) g.FillRectangle(arrow, Width - 23, 1, 22, Height - 2);
+            using (var border = new Pen(Focused ? LauncherTheme.Accent : LauncherTheme.Border)) g.DrawRectangle(border, 0, 0, Width - 1, Height - 1);
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            int x = Width - 13, y = Height / 2;
+            using (var chevron = new Pen(Enabled ? LauncherTheme.Muted : Color.FromArgb(76, 94, 114), 1.5f))
+                g.DrawLines(chevron, new[] { new Point(x - 4, y - 2), new Point(x, y + 2), new Point(x + 4, y - 2) });
+        }
+    }
+}
+
 internal sealed class LauncherButton : Button {
+    public Color SurfaceColor = Color.Empty;
+    bool hover, pressed;
+    public LauncherButton() { DoubleBuffered = true; Cursor = Cursors.Hand; }
+    protected override void OnMouseEnter(EventArgs e) { hover = true; base.OnMouseEnter(e); Invalidate(); }
+    protected override void OnMouseLeave(EventArgs e) { hover = pressed = false; base.OnMouseLeave(e); Invalidate(); }
+    protected override void OnMouseDown(MouseEventArgs e) { pressed = true; base.OnMouseDown(e); Invalidate(); }
+    protected override void OnMouseUp(MouseEventArgs e) { pressed = false; base.OnMouseUp(e); Invalidate(); }
+    protected override void OnGotFocus(EventArgs e) { base.OnGotFocus(e); Invalidate(); }
+    protected override void OnLostFocus(EventArgs e) { base.OnLostFocus(e); Invalidate(); }
     protected override void OnPaint(PaintEventArgs e) {
-        if (Enabled) { base.OnPaint(e); return; }
-        e.Graphics.Clear(BackColor);
-        using (var border = new Pen(Color.FromArgb(87, 104, 124)))
-            e.Graphics.DrawRectangle(border, 0, 0, Width - 1, Height - 1);
-        TextRenderer.DrawText(e.Graphics, Text, Font, ClientRectangle,
-            Color.FromArgb(155, 173, 194), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+        var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.Clear(SurfaceColor.IsEmpty ? (Parent == null ? LauncherTheme.Background : Parent.BackColor) : SurfaceColor);
+        int delta = Enabled ? (pressed ? -12 : hover ? 12 : 0) : -4;
+        Color fill = Color.FromArgb(Math.Max(0, Math.Min(255, BackColor.R + delta)), Math.Max(0, Math.Min(255, BackColor.G + delta)), Math.Max(0, Math.Min(255, BackColor.B + delta)));
+        using (var shape = LauncherTheme.Round(new Rectangle(1, 1, Width - 3, Height - 3), 10)) {
+            using (var brush = new SolidBrush(fill)) g.FillPath(brush, shape);
+            if (FlatAppearance.BorderSize != 0) using (var border = new Pen(Focused ? LauncherTheme.Accent : Color.FromArgb(54, 75, 96))) g.DrawPath(border, shape);
+            if (Focused && FlatAppearance.BorderSize == 0) using (var focus = new Pen(Color.FromArgb(8, 65, 70), 2)) g.DrawPath(focus, shape);
+        }
+        TextRenderer.DrawText(g, Text, Font, ClientRectangle, Enabled ? ForeColor : LauncherTheme.Muted,
+            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
     }
 }
