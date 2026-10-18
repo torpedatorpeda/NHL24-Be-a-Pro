@@ -1,0 +1,43 @@
+// SPDX-FileCopyrightText: Copyright 2025 shadPS4 Emulator Project
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#include "winresrc.h"
+
+#define xstr(s) str(s)
+#define str(s) #s
+
+// NEUTRAL LANG
+LANGUAGE LANG_NEUTRAL, 0x8
+
+// ICON
+IDI_ICON1 ICON "nhl24.ico"
+
+// VERSION
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION    NHLPORT_VERSION_MAJOR, NHLPORT_VERSION_MINOR, NHLPORT_VERSION_PATCH, 0
+ PRODUCTVERSION NHLPORT_VERSION_MAJOR, NHLPORT_VERSION_MINOR, NHLPORT_VERSION_PATCH, 0
+ FILEFLAGSMASK 0x3fL
+ FILEFLAGS 0x0L
+ FILEOS 0x40004L
+ FILETYPE 0x2L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName", "NHL24 PC\0"
+            VALUE "FileDescription", "NHL24 PC\0"
+            VALUE "FileVersion", xstr(NHLPORT_VERSION_MAJOR) "." xstr(NHLPORT_VERSION_MINOR) "." xstr(NHLPORT_VERSION_PATCH) ".0\0"
+            VALUE "InternalName", "nhl24\0"
+            VALUE "LegalCopyright", "NHL24 PC port, based on shadPS4 (GPL-2.0-or-later)\0"
+            VALUE "OriginalFilename", "nhl24.exe\0"
+            VALUE "ProductName", "NHL24 PC\0"
+            VALUE "ProductVersion", xstr(NHLPORT_VERSION_MAJOR) "." xstr(NHLPORT_VERSION_MINOR) "." xstr(NHLPORT_VERSION_PATCH) ".0\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
