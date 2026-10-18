@@ -34,12 +34,12 @@ internal sealed class LauncherData {
         string legacy = Path.Combine(InstallRoot, "user");
         if (!File.Exists(marker) && !HasSaves(UserRoot) && File.Exists(Path.Combine(legacy, "config.json"))) {
             ImportLegacy(legacy, false);
-            StartupMessage = "Карьера и настройки перенесены в AppData. Старая папка сохранена.";
+            StartupMessage = "Карьера перенесена из предыдущей версии. Всё готово к игре.";
             return;
         }
         EnsureAssets(UserRoot);
         if (!File.Exists(marker)) WriteJson(marker, new Dictionary<string, object> { { "storage_version", 4 } });
-        StartupMessage = "Карьера и настройки хранятся отдельно от программы, в AppData.";
+        StartupMessage = "Готово к запуску.";
     }
 
     public static bool HasSaves(string userRoot) {

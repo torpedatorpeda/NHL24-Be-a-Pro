@@ -19,6 +19,13 @@
   semantically identical and the original profile is unchanged.
 - The supported full build completes from the pinned base executable and
   its generated ZIP passes internal integrity/content checks.
+- Normal launch from Windows Explorer imports the legacy profile into the
+  ordinary user LocalAppData. The Saves button opens its actual home folder
+  in Windows Explorer and the four imported user profiles are visible.
+- The development host is an MSIX app: a launcher started as its child used
+  a virtualized LocalCache/Local profile behind the same logical AppData path.
+  File-handle path resolution identified this during UI verification. Final
+  installation is launched through ordinary Windows Explorer, not that host.
 
 These checks concern packaging/storage, not new gameplay fixes. R3's remaining
 gameplay/driver verification limits still apply.

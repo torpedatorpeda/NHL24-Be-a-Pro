@@ -20,6 +20,15 @@ rolls back the target backup. A marker prevents automatic re-import on every
 launch. A named mutex prevents two launchers from modifying the same profile.
 
 See docs/BUILD.md for the R4 build and docs/VALIDATION.md for storage checks.
+The main window has one Saves entry; its dialog exposes the career folder,
+backups and a separate import flow. Import validates the selected folder,
+explains replacement/backup before the final action, and prevents closing
+while copying. Help and logs are separate from daily launch controls.
+Folder opening explicitly starts the Windows Explorer executable with a
+quoted path. Startup/installation verification must include a normal Windows
+Explorer launch, since packaged parent apps can virtualize AppData for their
+child processes; reading the same logical path from such a parent is not
+proof that the unvirtualized Windows Explorer can access it.
 The earlier native implementation details follow.
 
 # Unified launcher R3, 2026-10-18

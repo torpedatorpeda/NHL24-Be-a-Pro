@@ -14,7 +14,6 @@ using System.Windows.Forms;
 internal sealed class NHL24Launcher : Form {
     readonly string root = AppDomain.CurrentDomain.BaseDirectory;
     readonly LauncherData storage;
-    readonly Button importData = new Button();
     readonly TextBox gameFolder = new TextBox();
     readonly ComboBox mode = new ComboBox();
     readonly ComboBox resolution = new ComboBox();
@@ -23,9 +22,9 @@ internal sealed class NHL24Launcher : Form {
     readonly CheckBox sharpening = new CheckBox();
     readonly TrackBar sharpness = new TrackBar();
     readonly Label sharpnessValue = new Label();
-    readonly Button save = new Button();
+    readonly Button save = new LauncherButton();
     readonly ToolTip tips = new ToolTip();
-    readonly Button play = new Button();
+    readonly Button play = new LauncherButton();
     readonly Label status = new Label();
     Process game;
     bool settingsLoaded;
@@ -53,7 +52,7 @@ internal sealed class NHL24Launcher : Form {
     NHL24Launcher(LauncherData data) {
         storage = data;
         Text = "NHL 24 • Be a Pro";
-        Size = new Size(760, 760);
+        Size = new Size(760, 680);
         MinimumSize = MaximumSize = Size;
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = Color.FromArgb(15, 23, 35);
@@ -91,7 +90,7 @@ internal sealed class NHL24Launcher : Form {
         upscaler.SelectedIndex = 1;
         upscaler.SelectedIndexChanged += delegate { UpdateSharpeningControls(); MarkSettingsChanged(); };
         Controls.Add(upscaler);
-        sharpening.Text = "Резкость (sharpness / RCAS)";
+        sharpening.Text = "Резкость FSR";
         sharpening.SetBounds(360, 302, 355, 30);
         sharpening.CheckedChanged += delegate { UpdateSharpeningControls(); MarkSettingsChanged(); };
         Controls.Add(sharpening);
@@ -112,14 +111,13 @@ internal sealed class NHL24Launcher : Form {
         tips.SetToolTip(sharpness, "Чем выше значение, тем резче картинка. 0% — минимальная, 100% — максимальная резкость.");
         vsync.SetBounds(33, 390, 390, 30);
         Controls.Add(vsync);
-        AddLabel("Повышенная совместимость графики включена.\nВ некоторых сценах возможно снижение FPS.", 33, 425, 680, 42, 9, FontStyle.Regular);
-        AddLabel("FSR и резкость действуют при увеличении картинки.\nИзменения применяются при следующем запуске игры.", 33, 468, 680, 42, 9, FontStyle.Regular);
-        status.SetBounds(33, 526, 680, 38);
+        AddLabel("Настройки графики применятся при следующем запуске игры.", 33, 430, 680, 24, 9, FontStyle.Regular);
+        status.SetBounds(33, 477, 680, 38);
         status.ForeColor = Color.FromArgb(163, 191, 214);
-        status.Text = storage.StartupMessage;
+        status.Text = gameFolder.Text.Length == 0 ? "Выбери папку NHL 24, чтобы начать." : storage.StartupMessage;
         Controls.Add(status);
         play.Text = "ИГРАТЬ";
-        play.SetBounds(450, 584, 261, 45);
+        play.SetBounds(450, 534, 261, 45);
         play.FlatStyle = FlatStyle.Flat;
         play.FlatAppearance.BorderSize = 0;
         play.BackColor = Color.FromArgb(40, 196, 204);
@@ -127,8 +125,8 @@ internal sealed class NHL24Launcher : Form {
         play.Font = new Font("Segoe UI", 14, FontStyle.Bold);
         play.Click += async delegate { await StartGame(); };
         Controls.Add(play);
-        save.Text = "Сохранить";
-        save.SetBounds(33, 584, 174, 45);
+        save.Text = "Сохранить настройки";
+        save.SetBounds(33, 534, 202, 45);
         save.BackColor = Color.FromArgb(35, 49, 68);
         save.ForeColor = Color.White;
         save.FlatStyle = FlatStyle.Flat;
@@ -137,25 +135,15 @@ internal sealed class NHL24Launcher : Form {
             catch (Exception ex) { MessageBox.Show(this, ex.Message, "NHL 24 — настройки", MessageBoxButtons.OK, MessageBoxIcon.Information); }
         };
         Controls.Add(save);
-        var logs = MakeButton("Открыть журнал", 225, 584, 188, 45);
-        logs.Click += delegate {
-            string p = storage.LogFile;
-            try { if (File.Exists(p)) Process.Start(new ProcessStartInfo(p) { UseShellExecute = true }); else status.Text = "Журнал появится после первого запуска."; }
-            catch (Exception ex) { MessageBox.Show(this, ex.Message, "Журнал запуска"); }
-        };
-        var dataFolder = MakeButton("Папка данных", 33, 646, 310, 36);
-        dataFolder.Click += delegate {
-            try { Process.Start(new ProcessStartInfo(storage.DataRoot) { UseShellExecute = true }); }
-            catch (Exception ex) { MessageBox.Show(this, ex.Message, "Папка данных"); }
-        };
-        importData.Text = "Перенести старую папку…";
-        importData.SetBounds(365, 646, 346, 36);
-        importData.BackColor = Color.FromArgb(35, 49, 68);
-        importData.ForeColor = Color.White;
-        importData.FlatStyle = FlatStyle.Flat;
-        importData.Click += delegate { ImportOldData(); };
-        Controls.Add(importData);
-        tips.SetToolTip(dataFolder, "Сохранения, настройки, журналы и резервные копии находятся в AppData\\Local\\NHL24-Be-a-Pro.");
+        var saves = MakeButton("Сохранения", 253, 534, 179, 45);
+        saves.Click += delegate { ShowSaves(); };
+        var help = new LinkLabel { Text = "Помощь и журналы", LinkColor = Color.FromArgb(163, 191, 214), ActiveLinkColor = Color.White, AutoSize = true };
+        help.SetBounds(33, 604, 190, 24);
+        help.LinkClicked += delegate { ShowHelp(); };
+        Controls.Add(help);
+        var automaticSave = new Label { Text = "Карьера останется при обновлении", ForeColor = Color.FromArgb(163, 191, 214), TextAlign = ContentAlignment.TopRight };
+        automaticSave.SetBounds(305, 604, 406, 24);
+        Controls.Add(automaticSave);
         Log("Unified launcher R4 started; storage=LocalAppData; texture-footprint=expand-compatible; readbacks=graphics-serialized; Windows=" + Environment.OSVersion.VersionString);
         LoadSettings();
         settingsLoaded = true;
@@ -165,25 +153,101 @@ internal sealed class NHL24Launcher : Form {
         ActiveControl = save;
     }
 
-    void ImportOldData() {
+    Form CreateDialog(string title, int height) {
+        return new Form { Text = title, ClientSize = new Size(620, height), Font = Font, BackColor = BackColor, ForeColor = ForeColor,
+            FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false, StartPosition = FormStartPosition.CenterParent, ShowInTaskbar = false };
+    }
+    static Label DialogText(Form dialog, string text, int y, int height, bool heading = false) {
+        var label = new Label { Text = text, Font = heading ? new Font(dialog.Font.FontFamily, 19, FontStyle.Bold) : dialog.Font };
+        label.SetBounds(24, y, 572, height); dialog.Controls.Add(label); return label;
+    }
+    static Button DialogButton(Form dialog, string text, int x, int y, int width) {
+        var button = new LauncherButton { Text = text, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(35, 49, 68), ForeColor = Color.White };
+        button.SetBounds(x, y, width, 38); dialog.Controls.Add(button); return button;
+    }
+    void OpenFolder(IWin32Window owner, string folder) {
         try {
-            if (Process.GetProcessesByName("nhl24").Length != 0) throw new InvalidOperationException("Перед переносом закрой игру.");
-            using (var dialog = new FolderBrowserDialog()) {
-                dialog.Description = "Выбери старую папку лаунчера или её папку user. Исходные данные останутся на месте.";
-                if (dialog.ShowDialog(this) != DialogResult.OK) return;
-                bool replace = LauncherData.HasSaves(storage.UserRoot);
-                if (replace && MessageBox.Show(this, "В AppData уже есть сохранения. Сначала будет создана их резервная копия, затем будут перенесены данные из выбранной папки. Продолжить?", "Перенос карьеры", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
-                storage.ImportLegacy(dialog.SelectedPath, replace);
-                settingsLoaded = false;
-                gameFolder.Text = LoadGamePath();
-                LoadSettings();
-                settingsLoaded = true;
-                status.Text = storage.StartupMessage;
-                Log("Legacy profile imported with verified copies; source retained");
-            }
+            string full = Path.GetFullPath(folder);
+            Directory.CreateDirectory(full);
+            string explorer = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
+            Process.Start(new ProcessStartInfo(explorer, "/e,\"" + full + "\"") { UseShellExecute = true });
         } catch (Exception ex) {
-            settingsLoaded = true;
-            MessageBox.Show(this, ex.Message, "Перенос данных", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            Log("Open folder failed: " + ex);
+            MessageBox.Show(owner, "Не удалось открыть папку. Путь можно скопировать из этого окна.\n\n" + ex.Message, "Открытие папки", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+    }
+    void ShowSaves() {
+        using (var dialog = CreateDialog("Сохранения и карьера", 390)) {
+            DialogText(dialog, "Сохранения и карьера", 22, 42, true);
+            DialogText(dialog, "Карьера хранится отдельно от программы и остаётся на месте\nпри обновлении лаунчера.", 78, 48);
+            DialogText(dialog, "Папка сохранений", 143, 22);
+            var location = new TextBox { Text = storage.UserFile("home"), ReadOnly = true, BackColor = Color.FromArgb(32, 43, 60), ForeColor = Color.White, AccessibleName = "Папка сохранений" };
+            location.SetBounds(24, 170, 572, 28); dialog.Controls.Add(location);
+            DialogButton(dialog, "Открыть сохранения", 24, 213, 278).Click += delegate { OpenFolder(dialog, storage.UserFile("home")); };
+            DialogButton(dialog, "Резервные копии", 318, 213, 278).Click += delegate { OpenFolder(dialog, Path.Combine(storage.DataRoot, "backups")); };
+            DialogText(dialog, "Импортируй прежнюю карьеру из старого лаунчера.\nПеред заменой текущих данных создадим резервную копию.", 272, 48);
+            var import = DialogButton(dialog, "Импорт из старой версии…", 24, 332, 355);
+            import.Enabled = Process.GetProcessesByName("nhl24").Length == 0;
+            if (!import.Enabled) tips.SetToolTip(import, "Закрой игру, чтобы импортировать карьеру.");
+            import.Click += delegate { if (ImportOldData(dialog)) dialog.Close(); };
+            var close = DialogButton(dialog, "Закрыть", 440, 332, 156); close.DialogResult = DialogResult.Cancel; dialog.CancelButton = close;
+            dialog.ShowDialog(this);
+        }
+    }
+    bool ImportOldData(IWin32Window owner) {
+        using (var dialog = CreateDialog("Импорт карьеры", 396)) {
+            DialogText(dialog, "Карьера из старой версии", 22, 42, true);
+            DialogText(dialog, "Выбери папку, из которой раньше запускал NHL 24.\nСкопируем карьеру, профили и настройки. Старые файлы останутся.", 78, 52);
+            DialogText(dialog, "Папка предыдущего лаунчера", 148, 22);
+            var source = new TextBox { BackColor = Color.FromArgb(32, 43, 60), ForeColor = Color.White, AccessibleName = "Папка предыдущего лаунчера" };
+            source.SetBounds(24, 178, 414, 28); dialog.Controls.Add(source);
+            var choose = DialogButton(dialog, "Выбрать…", 454, 174, 142);
+            var feedback = DialogText(dialog, "Укажи папку, чтобы найти сохранения.", 220, 42);
+            bool replace = LauncherData.HasSaves(storage.UserRoot);
+            DialogText(dialog, replace ? "Текущая карьера будет заменена импортированной. Перед заменой\nавтоматически сохраним её резервную копию." : "Импортированная карьера появится при следующем запуске игры.", 275, 48);
+            var confirm = DialogButton(dialog, replace ? "Импортировать и заменить" : "Импортировать", 24, 338, 355); confirm.Enabled = false;
+            var cancel = DialogButton(dialog, "Отмена", 440, 338, 156); cancel.DialogResult = DialogResult.Cancel; dialog.CancelButton = cancel;
+            source.TextChanged += delegate {
+                confirm.Enabled = false;
+                if (string.IsNullOrWhiteSpace(source.Text)) { feedback.Text = "Укажи папку, чтобы найти сохранения."; return; }
+                try { LauncherData.ResolveLegacy(source.Text.Trim().Trim('"')); feedback.Text = "Найден профиль предыдущей версии. Готово к импорту."; confirm.Enabled = true; }
+                catch { feedback.Text = "В этой папке не найдены данные предыдущей версии.\nВыбери папку старого лаунчера или её папку user."; }
+            };
+            choose.Click += delegate { using (var picker = new FolderBrowserDialog { Description = "Выбери папку предыдущего лаунчера NHL 24", ShowNewFolderButton = false }) { if (picker.ShowDialog(dialog) == DialogResult.OK) source.Text = picker.SelectedPath; } };
+            bool copying = false;
+            dialog.FormClosing += delegate(object sender, FormClosingEventArgs e) { if (copying) e.Cancel = true; };
+            confirm.Click += async delegate {
+                try {
+                    if (Process.GetProcessesByName("nhl24").Length != 0) throw new InvalidOperationException("Закрой игру перед импортом карьеры.");
+                    string selected = source.Text.Trim().Trim('"');
+                    source.Enabled = choose.Enabled = confirm.Enabled = cancel.Enabled = false; dialog.ControlBox = false; dialog.UseWaitCursor = true; copying = true;
+                    feedback.Text = "Копируем и проверяем сохранения…";
+                    await Task.Run(delegate { storage.ImportLegacy(selected, replace); });
+                    settingsLoaded = false; gameFolder.Text = LoadGamePath(); LoadSettings(); settingsLoaded = true;
+                    status.Text = "Карьера импортирована. Можно запускать игру.";
+                    Log("Legacy profile imported with verified copies; source retained");
+                    copying = false; dialog.DialogResult = DialogResult.OK; dialog.Close();
+                } catch (Exception ex) {
+                    copying = false; settingsLoaded = true; feedback.Text = "Импорт не завершён. " + ex.Message;
+                    Log("Legacy import failed: " + ex);
+                    source.Enabled = choose.Enabled = confirm.Enabled = cancel.Enabled = true; dialog.ControlBox = true;
+                } finally { if (!dialog.IsDisposed) dialog.UseWaitCursor = false; }
+            };
+            return dialog.ShowDialog(owner) == DialogResult.OK;
+        }
+    }
+    void ShowHelp() {
+        using (var dialog = CreateDialog("Помощь", 310)) {
+            DialogText(dialog, "Помощь и журналы", 22, 42, true);
+            DialogText(dialog, "Игра не запускается или вылетает? Журналы помогут разобраться.\nНичего не отправляется автоматически.", 78, 52);
+            DialogButton(dialog, "Открыть журнал запуска", 24, 151, 278).Click += delegate {
+                try { Process.Start(new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "notepad.exe"), "\"" + storage.LogFile + "\"") { UseShellExecute = true }); }
+                catch (Exception ex) { MessageBox.Show(dialog, ex.Message, "Журнал запуска"); }
+            };
+            DialogButton(dialog, "Все файлы и журналы", 318, 151, 278).Click += delegate { OpenFolder(dialog, storage.DataRoot); };
+            DialogText(dialog, "FSR и резкость работают при увеличении изображения.\nСовместимость кат-сцен включена; в отдельных сценах FPS ниже.", 210, 48);
+            var close = DialogButton(dialog, "Закрыть", 440, 265, 156); close.DialogResult = DialogResult.Cancel; dialog.CancelButton = close;
+            dialog.ShowDialog(this);
         }
     }
 
@@ -192,7 +256,7 @@ internal sealed class NHL24Launcher : Form {
         label.SetBounds(x, y, w, h); Controls.Add(label);
     }
     Button MakeButton(string text, int x, int y, int w, int h) {
-        var button = new Button { Text = text, BackColor = Color.FromArgb(35, 49, 68), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+        var button = new LauncherButton { Text = text, BackColor = Color.FromArgb(35, 49, 68), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         button.SetBounds(x, y, w, h); Controls.Add(button); return button;
     }
     string LoadGamePath() {
@@ -295,7 +359,7 @@ internal sealed class NHL24Launcher : Form {
         } finally { if (File.Exists(temp)) File.Delete(temp); }
     }
     void SetSettingsEnabled(bool enabled) {
-        foreach (Control control in new Control[] { play, save, gameFolder, mode, resolution, vsync, upscaler, importData }) control.Enabled = enabled;
+        foreach (Control control in new Control[] { play, save, gameFolder, mode, resolution, vsync, upscaler }) control.Enabled = enabled;
         UpdateSharpeningControls();
     }
     async Task StartGame() {
@@ -351,5 +415,18 @@ internal sealed class NHL24Launcher : Form {
             MessageBox.Show(this, ex.Message, "NHL 24 — запуск", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         finally { SetSettingsEnabled(true); }
+    }
+}
+
+// Keep disabled actions readable on the dark background; the native disabled
+// text colour can otherwise be almost black on some Windows themes.
+internal sealed class LauncherButton : Button {
+    protected override void OnPaint(PaintEventArgs e) {
+        if (Enabled) { base.OnPaint(e); return; }
+        e.Graphics.Clear(BackColor);
+        using (var border = new Pen(Color.FromArgb(87, 104, 124)))
+            e.Graphics.DrawRectangle(border, 0, 0, Width - 1, Height - 1);
+        TextRenderer.DrawText(e.Graphics, Text, Font, ClientRectangle,
+            Color.FromArgb(155, 173, 194), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
     }
 }
