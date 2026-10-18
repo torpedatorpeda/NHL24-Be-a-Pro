@@ -2,6 +2,10 @@
 
 Status: candidate; full post-match gameplay reproduction pending.
 
+The R5 gameplay attempt stopped at match startup in a separate texel-buffer
+alias assertion, before the original post-match transition could be checked.
+See R6-TEXEL-ALIAS.md for the follow-up correction; R5's mip handling is retained.
+
 The reported failure has an existing 1920x1080 B10G11R11 texture with 11 mip
 levels (0xba3500 guest bytes), followed by a single-level render target at the
 same address describing 0x1000000 bytes. Both use pitch 2048, one layer,

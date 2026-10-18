@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Package only the enumerated R5 program assets; never walk a user profile."""
+"""Package only the enumerated R6 program assets; never walk a user profile."""
 import argparse
 import hashlib
 import json
@@ -19,7 +19,7 @@ FILES = (
     "defaults/config.json",
     "defaults/patches/nhl24.xml",
 )
-README = """NHL24 Be a Pro — полная сборка R5
+README = """NHL24 Be a Pro — полная сборка R6
 
 1. Установи свою копию NHL 24 удобным тебе способом. Игра устанавливается
    отдельно — лаунчер её не скачивает и не устанавливает. Нужна версия для
@@ -60,15 +60,16 @@ README = """NHL24 Be a Pro — полная сборка R5
 в отдельную папку. Данные в AppData будут подхвачены автоматически.
 Не удаляй AppData: в ней находится действующая карьера.
 
-R5 добавляет обработку конфликта уровней изображения при переходе после матча.
-Исправления R3 и хранение данных в AppData сохранены. Проверки ядра пройдены;
-переход после полного матча ещё требует проверки в игре.
+R6 исправляет выбор изображения и смещение при чтении его данных буфером.
+Сохранена обработка конфликта уровней изображения из R5, прежние исправления
+и хранение данных в AppData. Проверки ядра пройдены; запуск и окончание
+полного матча ещё требуют проверки в игре.
 
 Исходники, история изменений и поддержка:
 https://github.com/torpedatorpeda/NHL24-Be-a-Pro
 Основа: https://github.com/HajDEO/nhl24pc и https://github.com/shadps4-emu/shadPS4
 """
-NOTICE = """NHL24 Be a Pro R5
+NOTICE = """NHL24 Be a Pro R6
 
 Launcher and native adaptations: GPL-2.0-or-later. See LICENSE.
 The emulator is derived from NHL24 PC / shadPS4. Original authorship,
@@ -108,9 +109,9 @@ def package(build: Path, output: Path) -> dict:
     payload["THIRD-PARTY-NOTICES.txt"] = NOTICE.encode("utf-8")
     file_hashes = {name: hashlib.sha256(data).hexdigest() for name, data in sorted(payload.items())}
     metadata = {
-        "version": "R5", "kind": "full", "storage_version": 4,
+        "version": "R6", "kind": "full", "storage_version": 4,
         "data_directory": "%LOCALAPPDATA%\\NHL24-Be-a-Pro",
-        "core_revision": "R5", "game_files_included": False,
+        "core_revision": "R6", "game_files_included": False,
         "source": "https://github.com/torpedatorpeda/NHL24-Be-a-Pro",
         "files": file_hashes,
     }
