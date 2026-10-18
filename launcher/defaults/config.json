@@ -1,0 +1,58 @@
+{
+  "General": {
+    "console_language": 1,
+    "redzone_patches": true,
+    "neo_mode": false,
+    "home_dir": "",
+    "font_dir": "",
+    "sys_modules_dir": "",
+    "show_splash": false,
+    "discord_rpc_enabled": false,
+    "volume_slider": 100
+  },
+  "GPU": {
+    "window_width": 1920,
+    "window_height": 1080,
+    "internal_screen_width": 1920,
+    "internal_screen_height": 1080,
+    "full_screen": true,
+    "full_screen_mode": "Windowed",
+    "present_mode": "Fifo",
+    "readbacks_mode": 1,
+    "readback_linear_images_enabled": false,
+    "copy_gpu_buffers": false,
+    "direct_memory_access_enabled": false,
+    "inline_fetch_shader": false,
+    "dump_shaders": false,
+    "hdr_allowed": false,
+    "fsr_enabled": false,
+    "rcas_enabled": false,
+    "rcas_attenuation": 2400
+  },
+  "Network": {
+    "connected_to_network": false,
+    "shad_net_enabled": false
+  },
+  "Input": {
+    "background_controller_input": false,
+    "use_keyboard_as_keyboard": false,
+    "use_unified_input_config": true
+  },
+  "Vulkan": {
+    "gpu_id": -1,
+    "pipeline_cache_enabled": true,
+    "vkvalidation_enabled": false,
+    "vkvalidation_sync_enabled": false,
+    "vkvalidation_gpu_enabled": false,
+    "vkcrash_diagnostic_enabled": false
+  },
+  "Log": {
+    "enable": true,
+    "sync": true,
+    "type": "wincolor",
+    "filter": "Kernel.Vmm:warning Lib.Ajm:warning Lib.Http:warning Lib.Net:warning Kernel.Fs:warning Lib.VideoOut:info Lib.SystemService:debug",
+    "skip_duplicate": true,
+    "max_skip_duration": 5000,
+    "size_limit": 104857600
+  }
+}

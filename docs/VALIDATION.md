@@ -1,3 +1,28 @@
+# R4 packaging and storage validation
+
+- A clean isolated profile starts with the packaged defaults and no prior
+  user directory, game path, saves, console modules or fonts. Selecting the
+  existing game boots to initial score-clock calibration / quick settings.
+- The game process is the absolute runtime/nhl24.exe and its new logs/cache
+  are written under the separate data directory.
+- Twenty-four isolated storage checks cover clean initialization, persistence
+  across reopening, career SHA-256 equality, source retention, users.json
+  identity and settings preservation, transient cache exclusion, refusing
+  occupied targets and self-import, explicit replacement with a backup,
+  malformed-config failure without replacing an active profile, configured
+  external save storage without mixing stale local saves, relative external
+  paths resolved against the old launcher directory, Cyrillic paths,
+  and one-time adjacent legacy migration.
+- Native emulator and shader/memory helper hashes are unchanged from R3.
+- A real legacy profile was copied to LocalAppData: 25 copied files match
+  SHA-256, including all career and identity/input files; config values are
+  semantically identical and the original profile is unchanged.
+- The supported full build completes from the pinned base executable and
+  its generated ZIP passes internal integrity/content checks.
+
+These checks concern packaging/storage, not new gameplay fixes. R3's remaining
+gameplay/driver verification limits still apply.
+
 # R3 validation
 
 - The new executable's actual mapped overlap predicate accepts the reported

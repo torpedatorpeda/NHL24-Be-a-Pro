@@ -6,12 +6,15 @@ using System.Drawing;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
 
 internal sealed class NHL24Launcher : Form {
     readonly string root = AppDomain.CurrentDomain.BaseDirectory;
+    readonly LauncherData storage;
+    readonly Button importData = new Button();
     readonly TextBox gameFolder = new TextBox();
     readonly ComboBox mode = new ComboBox();
     readonly ComboBox resolution = new ComboBox();
@@ -30,12 +33,27 @@ internal sealed class NHL24Launcher : Form {
     [STAThread] static void Main() {
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
-        Application.Run(new NHL24Launcher());
+        var data = new LauncherData(AppDomain.CurrentDomain.BaseDirectory, LauncherData.DefaultRoot);
+        string mutexName;
+        using (var sha = SHA256.Create()) mutexName = "Local\\NHL24-Be-a-Pro-" + BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(data.DataRoot.ToUpperInvariant()))).Replace("-", "");
+        using (var mutex = new Mutex(false, mutexName)) {
+            bool acquired = false;
+            try {
+                try { acquired = mutex.WaitOne(0); } catch (AbandonedMutexException) { acquired = true; }
+                if (!acquired) throw new InvalidOperationException("Лаунчер уже открыт. Используй существующее окно.");
+                if (Process.GetProcessesByName("nhl24").Length != 0) throw new InvalidOperationException("Закрой NHL 24 перед открытием лаунчера и переносом данных.");
+                data.EnsureReady();
+                Application.Run(new NHL24Launcher(data));
+            } catch (Exception ex) {
+                MessageBox.Show(ex.Message, "NHL 24 — запуск", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            } finally { if (acquired) mutex.ReleaseMutex(); }
+        }
     }
 
-    NHL24Launcher() {
+    NHL24Launcher(LauncherData data) {
+        storage = data;
         Text = "NHL 24 • Be a Pro";
-        Size = new Size(760, 700);
+        Size = new Size(760, 760);
         MinimumSize = MaximumSize = Size;
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = Color.FromArgb(15, 23, 35);
@@ -43,7 +61,7 @@ internal sealed class NHL24Launcher : Form {
         Font = new Font("Segoe UI", 10);
         MaximizeBox = false;
         AddLabel("NHL 24", 30, 24, 500, 60, 34, FontStyle.Bold);
-        AddLabel("Be a Pro • единая сборка R3", 33, 89, 630, 30, 13, FontStyle.Regular);
+        AddLabel("Be a Pro • полная сборка R4", 33, 89, 630, 30, 13, FontStyle.Regular);
         AddLabel("Папка игры", 33, 145, 600, 22, 10, FontStyle.Regular);
         gameFolder.SetBounds(33, 174, 560, 30);
         gameFolder.BackColor = Color.FromArgb(32, 43, 60);
@@ -98,7 +116,7 @@ internal sealed class NHL24Launcher : Form {
         AddLabel("FSR и резкость действуют при увеличении картинки.\nИзменения применяются при следующем запуске игры.", 33, 468, 680, 42, 9, FontStyle.Regular);
         status.SetBounds(33, 526, 680, 38);
         status.ForeColor = Color.FromArgb(163, 191, 214);
-        status.Text = "Настройки и сохранения хранятся в папке этой сборки.";
+        status.Text = storage.StartupMessage;
         Controls.Add(status);
         play.Text = "ИГРАТЬ";
         play.SetBounds(450, 584, 261, 45);
@@ -121,17 +139,52 @@ internal sealed class NHL24Launcher : Form {
         Controls.Add(save);
         var logs = MakeButton("Открыть журнал", 225, 584, 188, 45);
         logs.Click += delegate {
-            string p = Path.Combine(root, "launcher.log");
+            string p = storage.LogFile;
             try { if (File.Exists(p)) Process.Start(new ProcessStartInfo(p) { UseShellExecute = true }); else status.Text = "Журнал появится после первого запуска."; }
             catch (Exception ex) { MessageBox.Show(this, ex.Message, "Журнал запуска"); }
         };
-        Log("Unified launcher R3 started; texture-footprint=expand-compatible; readbacks=graphics-serialized; Windows=" + Environment.OSVersion.VersionString);
+        var dataFolder = MakeButton("Папка данных", 33, 646, 310, 36);
+        dataFolder.Click += delegate {
+            try { Process.Start(new ProcessStartInfo(storage.DataRoot) { UseShellExecute = true }); }
+            catch (Exception ex) { MessageBox.Show(this, ex.Message, "Папка данных"); }
+        };
+        importData.Text = "Перенести старую папку…";
+        importData.SetBounds(365, 646, 346, 36);
+        importData.BackColor = Color.FromArgb(35, 49, 68);
+        importData.ForeColor = Color.White;
+        importData.FlatStyle = FlatStyle.Flat;
+        importData.Click += delegate { ImportOldData(); };
+        Controls.Add(importData);
+        tips.SetToolTip(dataFolder, "Сохранения, настройки, журналы и резервные копии находятся в AppData\\Local\\NHL24-Be-a-Pro.");
+        Log("Unified launcher R4 started; storage=LocalAppData; texture-footprint=expand-compatible; readbacks=graphics-serialized; Windows=" + Environment.OSVersion.VersionString);
         LoadSettings();
         settingsLoaded = true;
         mode.SelectedIndexChanged += delegate { MarkSettingsChanged(); };
         resolution.SelectedIndexChanged += delegate { MarkSettingsChanged(); };
         vsync.CheckedChanged += delegate { MarkSettingsChanged(); };
         ActiveControl = save;
+    }
+
+    void ImportOldData() {
+        try {
+            if (Process.GetProcessesByName("nhl24").Length != 0) throw new InvalidOperationException("Перед переносом закрой игру.");
+            using (var dialog = new FolderBrowserDialog()) {
+                dialog.Description = "Выбери старую папку лаунчера или её папку user. Исходные данные останутся на месте.";
+                if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                bool replace = LauncherData.HasSaves(storage.UserRoot);
+                if (replace && MessageBox.Show(this, "В AppData уже есть сохранения. Сначала будет создана их резервная копия, затем будут перенесены данные из выбранной папки. Продолжить?", "Перенос карьеры", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+                storage.ImportLegacy(dialog.SelectedPath, replace);
+                settingsLoaded = false;
+                gameFolder.Text = LoadGamePath();
+                LoadSettings();
+                settingsLoaded = true;
+                status.Text = storage.StartupMessage;
+                Log("Legacy profile imported with verified copies; source retained");
+            }
+        } catch (Exception ex) {
+            settingsLoaded = true;
+            MessageBox.Show(this, ex.Message, "Перенос данных", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
     }
 
     void AddLabel(string text, int x, int y, int w, int h, float size, FontStyle style) {
@@ -144,7 +197,7 @@ internal sealed class NHL24Launcher : Form {
     }
     string LoadGamePath() {
         try {
-            string file = Path.Combine(root, "user", "game_path.txt");
+            string file = storage.UserFile("game_path.txt");
             if (File.Exists(file)) {
                 string saved = File.ReadAllText(file).Trim().Trim('"');
                 if (File.Exists(saved) && string.Equals(Path.GetFileName(saved), "eboot.bin", StringComparison.OrdinalIgnoreCase)) return Path.GetDirectoryName(saved);
@@ -156,13 +209,13 @@ internal sealed class NHL24Launcher : Form {
         return "";
     }
     void Log(string message) {
-        try { File.AppendAllText(Path.Combine(root, "launcher.log"), DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " " + message + Environment.NewLine, new UTF8Encoding(false)); }
+        try { File.AppendAllText(storage.LogFile, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " " + message + Environment.NewLine, new UTF8Encoding(false)); }
         catch (IOException) { } catch (UnauthorizedAccessException) { }
     }
     void LogGameTail(DateTime launchUtc) {
         foreach (string relative in new[] { "user\\log\\shad_log.txt", "shader-fix.log", "memory-fix.log" }) {
             try {
-                string file = Path.Combine(root, relative);
+                string file = Path.Combine(storage.DataRoot, relative);
                 if (!File.Exists(file) || File.GetLastWriteTimeUtc(file) < launchUtc.AddSeconds(-2)) continue;
                 using (var input = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) {
                     long offset = Math.Max(0, input.Length - 32768);
@@ -176,10 +229,10 @@ internal sealed class NHL24Launcher : Form {
         }
     }
     Dictionary<string, object> ReadConfig() {
-        return new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(File.ReadAllText(Path.Combine(root, "user", "config.json")));
+        return LauncherData.ReadJson(storage.UserFile("config.json"));
     }
     Dictionary<string, object> ReadLauncherSettings() {
-        string file = Path.Combine(root, "user", "launcher_settings.json");
+        string file = storage.UserFile("launcher_settings.json");
         return File.Exists(file) ? new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(File.ReadAllText(file)) : new Dictionary<string, object>();
     }
     static int Clamp(int value, int min, int max) { return Math.Max(min, Math.Min(max, value)); }
@@ -210,7 +263,7 @@ internal sealed class NHL24Launcher : Form {
             sharpening.Checked = gpu.TryGetValue("rcas_enabled", out value) && Convert.ToBoolean(value);
             sharpness.Value = 3000 - Clamp(gpu.TryGetValue("rcas_attenuation", out value) ? Convert.ToInt32(value) : 250, 0, 3000);
         } catch (Exception ex) {
-            status.Text = "Не удалось прочитать настройки. Проверь файл user\\config.json.";
+            status.Text = "Не удалось прочитать настройки. Открой папку данных для проверки.";
             tips.SetToolTip(status, ex.Message);
         }
         UpdateSharpeningControls();
@@ -230,8 +283,8 @@ internal sealed class NHL24Launcher : Form {
         if (forLaunch) ((Dictionary<string, object>)config["General"])["redzone_patches"] = true;
         var launcherSettings = ReadLauncherSettings();
         launcherSettings["compatible_cutscenes"] = true;
-        WriteJson(Path.Combine(root, "user", "launcher_settings.json"), launcherSettings);
-        WriteJson(Path.Combine(root, "user", "config.json"), config);
+        WriteJson(storage.UserFile("launcher_settings.json"), launcherSettings);
+        WriteJson(storage.UserFile("config.json"), config);
     }
     static void WriteJson(string file, object value) {
         string temp = file + "." + Guid.NewGuid().ToString("N") + ".tmp";
@@ -242,16 +295,18 @@ internal sealed class NHL24Launcher : Form {
         } finally { if (File.Exists(temp)) File.Delete(temp); }
     }
     void SetSettingsEnabled(bool enabled) {
-        foreach (Control control in new Control[] { play, save, gameFolder, mode, resolution, vsync, upscaler }) control.Enabled = enabled;
+        foreach (Control control in new Control[] { play, save, gameFolder, mode, resolution, vsync, upscaler, importData }) control.Enabled = enabled;
         UpdateSharpeningControls();
     }
     async Task StartGame() {
         try {
             if (!Environment.Is64BitOperatingSystem) throw new InvalidOperationException("Эта сборка требует 64-разрядную Windows.");
-            string exe = Path.Combine(root, "nhl24.exe");
+            string exe = Path.Combine(storage.RuntimeRoot, "nhl24.exe");
             var missing = new List<string>();
-            foreach (string file in new[] { "nhl24.exe", "nhl_shader_fix.dll", "nhl_memory_fix.dll", "msvcp140.dll", "msvcp140_atomic_wait.dll", "vcruntime140.dll", "vcruntime140_1.dll", "user\\config.json", "user\\patches\\nhl24.xml" })
-                if (!File.Exists(Path.Combine(root, file))) missing.Add(file);
+            foreach (string file in new[] { "nhl24.exe", "nhl_shader_fix.dll", "nhl_memory_fix.dll", "msvcp140.dll", "msvcp140_atomic_wait.dll", "vcruntime140.dll", "vcruntime140_1.dll" })
+                if (!File.Exists(Path.Combine(storage.RuntimeRoot, file))) missing.Add(file);
+            foreach (string file in new[] { "config.json", "patches\\nhl24.xml" })
+                if (!File.Exists(storage.UserFile(file))) missing.Add("данные: " + file);
             if (missing.Count != 0) throw new InvalidOperationException("В комплекте не хватает: " + string.Join(", ", missing) + ".\nРаспакуй весь ZIP в отдельную папку и запускай оттуда.");
             string selected = gameFolder.Text.Trim().Trim('"');
             if (selected.Length == 0) throw new InvalidOperationException("Нажми «Выбрать…» и укажи свою папку NHL 24, где лежит eboot.bin.");
@@ -264,20 +319,17 @@ internal sealed class NHL24Launcher : Form {
                 { "nhl_memory_fix.dll", "c9d2f824234b9f2ed7d97b1b5e98e57b8a676b0eef60e575dbe1cc29c41b1160" }
             };
             foreach (var expected in expectedHashes) {
-                using (var sha = SHA256.Create()) using (var input = File.OpenRead(Path.Combine(root, expected.Key))) {
+                using (var sha = SHA256.Create()) using (var input = File.OpenRead(Path.Combine(storage.RuntimeRoot, expected.Key))) {
                     string hash = BitConverter.ToString(sha.ComputeHash(input)).Replace("-", "").ToLowerInvariant();
-                    if (hash != expected.Value) throw new InvalidOperationException("Файл " + expected.Key + " отличается от подготовленного обновления. Распакуй обновление полностью.");
+                    if (hash != expected.Value) throw new InvalidOperationException("Файл " + expected.Key + " отличается от подготовленной сборки. Распакуй полный архив R4 целиком.");
                 }
             }
-            foreach (var p in Process.GetProcessesByName("nhl24")) {
-                try { if (string.Equals(p.MainModule.FileName, exe, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Эта копия NHL 24 уже запущена."); }
-                catch (System.ComponentModel.Win32Exception) { }
-            }
+            if (Process.GetProcessesByName("nhl24").Length != 0) throw new InvalidOperationException("NHL 24 уже запущена. Закрой игру перед повторным запуском.");
             SaveSettings(true);
-            File.WriteAllText(Path.Combine(root, "user", "game_path.txt"), path + Environment.NewLine);
+            File.WriteAllText(storage.UserFile("game_path.txt"), path + Environment.NewLine);
             SetSettingsEnabled(false);
             status.Text = "Игра запускается… При первом запуске возможна компиляция шейдеров.";
-            var start = new ProcessStartInfo(exe) { WorkingDirectory = root, UseShellExecute = false };
+            var start = new ProcessStartInfo(exe) { WorkingDirectory = storage.DataRoot, UseShellExecute = false };
             if (File.Exists(Path.Combine(root, "diagnostics.enabled"))) start.EnvironmentVariables["NHL_SHADER_DIAGNOSTICS"] = "1";
             start.EnvironmentVariables["NHLPORT_READBACK_DRAIN"] = "1";
             Log("Graphics: FSR=" + (upscaler.SelectedIndex == 1) + "; RCAS=" + sharpening.Checked + "; attenuation=" + (3000 - sharpness.Value) + "; readbacks=graphics-serialized (enforced in core)");
