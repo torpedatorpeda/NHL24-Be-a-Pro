@@ -5,6 +5,70 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "quality_shader.h"
+
+typedef struct { const uint32_t *data; size_t words; } PresentationShader;
+typedef void *(*CompilePresentationFn)(void *, const PresentationShader *, void *);
+
+static PresentationShader presentation_shader(const PresentationShader *input) {
+    PresentationShader selected = *input;
+    char setting[8];
+    if (GetEnvironmentVariableA("NHL24_EDGE_AA", setting, sizeof(setting)) != 1 ||
+        setting[0] != '1' || input->words != 737) return selected;
+    const unsigned char *bytes = (const unsigned char *)input->data;
+    uint32_t hash = 2166136261u;
+    for (size_t i = 0; i < input->words * 4; ++i) hash = (hash ^ bytes[i]) * 16777619u;
+    if (hash == 0x329afd3fu) {
+        selected.data = quality_shader;
+        selected.words = sizeof(quality_shader) / sizeof(quality_shader[0]);
+    }
+    return selected;
+}
+
+__declspec(dllexport) void *CompilePresentationShader(void *result,
+    const PresentationShader *input, void *device, CompilePresentationFn original) {
+    PresentationShader selected = presentation_shader(input);
+    return original(result, &selected, device);
+}
+
+// Runtime::FlushBarriers supplies its own mutable image-barrier vector.
+// A depth attachment can also be sampled in the same rendering instance.
+// The shader-read state then misses the attachment's store at EndRendering.
+typedef struct {
+    uint32_t type;
+    const void *next;
+    uint64_t src_stage, src_access, dst_stage, dst_access;
+    uint32_t old_layout, new_layout, src_family, dst_family;
+    uint64_t image;
+    uint32_t aspect, base_mip, mip_count, base_layer, layer_count;
+} ImageBarrier2;
+typedef struct {
+    uint32_t type;
+    const void *next;
+    uint32_t flags, memory_count;
+    const void *memory;
+    uint32_t buffer_count;
+    const void *buffers;
+    uint32_t image_count;
+    const ImageBarrier2 *images;
+} DependencyInfo;
+typedef void (*BarrierFn)(void *, const DependencyInfo *);
+_Static_assert(sizeof(ImageBarrier2) == 96, "Vulkan image barrier layout");
+_Static_assert(sizeof(DependencyInfo) == 64, "Vulkan dependency layout");
+
+__declspec(dllexport) void SubmitImageBarriers(void *command,
+    const DependencyInfo *dependency, BarrierFn original) {
+    for (uint32_t i = 0; i < dependency->image_count; ++i) {
+        ImageBarrier2 *barrier = (ImageBarrier2 *)&dependency->images[i];
+        if (barrier->type == 1000314002u && (barrier->aspect & 6u) &&
+            barrier->old_layout != 0 && barrier->src_family == UINT32_MAX &&
+            barrier->dst_family == UINT32_MAX) {
+            barrier->src_stage |= 0x300u; // early and late fragment tests
+            barrier->src_access |= 0x400u; // depth/stencil attachment store
+        }
+    }
+    original(command, dependency);
+}
 
 typedef struct { uint32_t flags, heap; } MemoryType;
 typedef struct { uint64_t size; uint32_t flags, padding; } MemoryHeap;

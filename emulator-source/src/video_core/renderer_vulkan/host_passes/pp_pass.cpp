@@ -7,6 +7,9 @@
 #include "core/emulator_settings.h"
 #include "video_core/host_shaders/fs_tri_vert.h"
 #include "video_core/host_shaders/post_process_frag.h"
+#include "video_core/host_shaders/quality_post_process_frag.h"
+#include <cstdlib>
+#include <string_view>
 #include "video_core/renderer_vulkan/vk_platform.h"
 #include "video_core/renderer_vulkan/vk_presenter.h"
 #include "video_core/renderer_vulkan/vk_shader_util.h"
@@ -44,7 +47,12 @@ void PostProcessingPass::Create(vk::Device device, const vk::Format surface_form
     ASSERT(vs_module);
     SetObjectName(device, vs_module, "fs_tri.vert");
 
-    const auto& fs_module = CompileSPV(POST_PROCESS_FRAG, device);
+    std::span<const u32> presentation_shader{POST_PROCESS_FRAG};
+    const char* edge_smoothing = std::getenv("NHL24_EDGE_AA");
+    if (edge_smoothing && std::string_view{edge_smoothing} == "1") {
+        presentation_shader = QUALITY_POST_PROCESS_FRAG;
+    }
+    const auto& fs_module = CompileSPV(presentation_shader, device);
     ASSERT(fs_module);
     SetObjectName(device, fs_module, "post_process.frag");
 

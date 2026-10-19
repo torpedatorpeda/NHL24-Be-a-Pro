@@ -1,4 +1,4 @@
-# Build the complete R7 bundle
+# Build the complete R11 bundle
 
 The supported build adapts one pinned original NHL24 PC 0.8.3 Windows x64
 executable. It creates a complete program bundle, including clean defaults;
@@ -20,20 +20,21 @@ Use a new output directory. Supply the original executable and its four
 Windows runtime DLLs (`msvcp140.dll`, `msvcp140_atomic_wait.dll`,
 `vcruntime140.dll`, `vcruntime140_1.dll`). The script copies only those
 enumerated dependencies, not arbitrary files from an installation.
-It compiles both native modules, applies the shader, arena-memory, readback
-texture, mip-alias and texel-alias integrations, and generates launcher integrity hashes for the
-resulting binaries. Another output path/compiler may change helper DLL bytes
-and debug metadata; launcher hashes are regenerated.
+It compiles the shader, memory and GPU-safety native modules, applies the
+shader, arena-memory, readback, texture, mip-alias, texel-alias, graphics,
+image-depth and device-safety integrations, and generates launcher integrity
+hashes for the resulting binaries. Another output path/compiler may change
+helper DLL bytes and debug metadata; launcher hashes are regenerated.
 
 The output contains the root `NHL24Launcher.exe`, a `runtime/` directory,
-clean `defaults/` and `NHL24-Be-a-Pro-Full-R7.zip`. The ZIP includes licenses,
+clean `defaults/` and `NHL24-Be-a-Pro-Full-R11.zip`. The ZIP includes licenses,
 instructions, `release.json` and per-file `SHA256SUMS.txt`.
 `package_full.py` uses an explicit asset allowlist and never walks a user
 directory. Build sources/manifests are not copied into the program ZIP.
 To package an already built set:
 
 ```powershell
-python launcher/package_full.py --build 'X:\new-build' --output 'X:\NHL24-Be-a-Pro-Full-R7.zip'
+python launcher/package_full.py --build 'X:\new-build' --output 'X:\NHL24-Be-a-Pro-Full-R11.zip'
 ```
 
 No installed launcher is required by the recipient. Extract the full ZIP
@@ -51,18 +52,32 @@ by copying its contents, and resets those copied profile paths to local storage.
 Imports into an occupied target require UI confirmation and move the previous
 target into a local backup before publishing the imported profile.
 
-R7 retains the R6 emulator SHA-256:
-`3ca5faab3240fbd0157121d0421ff11c9b86ba1a32f12abf2c4d87af733a9c04`.
+R8 adapts the R6/R7 emulator with two additional calls. Its SHA-256 is
+`055048e5fb350dc2f820c0ff5ace9cef4cca281d48810663fe9561723dc494e9`.
+The checked-in compiled presentation shader is built from the included GLSL;
+normal launcher builds do not require installing a shader compiler. See
+[R8-GRAPHICS.md](R8-GRAPHICS.md) for its source, checksum and regeneration.
 
-The R7 memory/device helper enables supported 16-bit uniform-buffer access.
-The distributed helper SHA-256 is
-`c41560ed48dceab55df71f801eb250b699f7c9d8bab8fe2ccc08882aeb2e67c5`.
-See R7-UNIFORM16.md for the change and gameplay-verification limits.
+The memory/device helper retains supported 16-bit uniform-buffer access,
+and adds image-barrier submission and optional presentation-shader selection.
+Helper checksums and launcher integrity entries are regenerated per build.
 
 The emulator-source folder is an available source snapshot of NHL24 PC, with
-source equivalents of the R2/R3/R5/R6/R7 renderer changes applied. It retains upstream
+source equivalents of the renderer changes applied. It retains upstream
 dependency declarations and licenses; several original external submodule
 directories are absent from the supplied snapshot. A complete CMake build
 needs those upstream dependencies and toolchain. It is distinct from the
 supported pinned-executable build above. Shader and memory helper source is
 in launcher/; the Python integration scripts specify its generated hooks.
+
+R10 is an intermediate pinned step, retaining R8 and adding the image-depth
+descriptor predicate and one-time compiled-cache migration. R11 adds the GPU
+shared-memory safety adapter and automatic local fault capture. Its runtime
+SHA-256 is `7da683cce9a6fbe4c7a56b9a6b762d80c6561f455e6b6fd4d60274afa3155d14`.
+See [R10-IMAGE-DEPTH.md](R10-IMAGE-DEPTH.md) and
+[R11-DEVICE-SAFETY.md](R11-DEVICE-SAFETY.md) for validation and crash limits.
+
+The paused Pro candidate is excluded by default. Only an explicit
+`-ExperimentalPro` builds its research runtime and UI; it is not a stable release.
+That separate research branch does not include R10/R11 and must not be used
+as an ordinary update. The standard R11 archive never includes its Pro DLL.

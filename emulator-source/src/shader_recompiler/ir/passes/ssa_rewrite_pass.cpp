@@ -116,6 +116,27 @@ constexpr IR::Opcode UndefOpcode(IR::RegTag tag) noexcept {
     }
 }
 
+IR::Value PrependUndef(IR::Block& block, IR::Block::iterator position, IR::RegTag tag) {
+    if (tag.type == RegType::VirtualReg) {
+        // A zero vector is a valid choice for an undefined floating-point value.
+        const IR::Value zero{0.f};
+        switch (tag.reg.type) {
+        case IR::Type::F32x2:
+            return IR::Value{&*block.PrependNewInst(
+                position, IR::Opcode::CompositeConstructF32x2, {zero, zero})};
+        case IR::Type::F32x3:
+            return IR::Value{&*block.PrependNewInst(
+                position, IR::Opcode::CompositeConstructF32x3, {zero, zero, zero})};
+        case IR::Type::F32x4:
+            return IR::Value{&*block.PrependNewInst(
+                position, IR::Opcode::CompositeConstructF32x4, {zero, zero, zero, zero})};
+        default:
+            break;
+        }
+    }
+    return IR::Value{&*block.PrependNewInst(position, UndefOpcode(tag))};
+}
+
 class Pass {
 public:
     void WriteVariable(IR::RegTag tag, IR::Block* block, const IR::Value& value) {
@@ -138,7 +159,7 @@ public:
                 chain.push_back(std::exchange(block, preds.front()));
                 continue;
             } else if (preds.empty()) {
-                result = IR::Value{&*block->PrependNewInst(block->begin(), UndefOpcode(tag))};
+                result = PrependUndef(*block, block->begin(), tag);
                 WriteVariable(tag, block, result);
                 break;
             }
@@ -205,8 +226,7 @@ public:
                 // All operands are self-references or phi has no operands
                 auto& list = block->Instructions();
                 auto reinsert_point = std::ranges::find_if_not(list, IR::IsPhi);
-                same = IR::Value{
-                    &*block->PrependNewInst(reinsert_point, UndefOpcode(phi->GetRegTag()))};
+                same = PrependUndef(*block, reinsert_point, phi->GetRegTag());
             }
 
             // Add phi users to worklist since they may have become trivial

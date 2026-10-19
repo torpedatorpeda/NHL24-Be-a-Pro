@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Package only the enumerated R7 program assets; never walk a user profile."""
+"""Package only enumerated program assets; never walk a user profile."""
 import argparse
 import hashlib
 import json
@@ -19,7 +19,7 @@ FILES = (
     "defaults/config.json",
     "defaults/patches/nhl24.xml",
 )
-README = """NHL24 Be a Pro — полная сборка R7
+README = """NHL24 Be a Pro — полная сборка R9
 
 1. Установи свою копию NHL 24 удобным тебе способом. Игра устанавливается
    отдельно — лаунчер её не скачивает и не устанавливает. Нужна версия для
@@ -60,7 +60,28 @@ README = """NHL24 Be a Pro — полная сборка R7
 в отдельную папку. Данные в AppData будут подхвачены автоматически.
 Не удаляй AppData: в ней находится действующая карьера.
 
-R7 включает поддерживаемую возможность 16-битных данных в uniform-буферах,
+R8 добавляет «Сглаживание краёв» в разделе изображения; по умолчанию выключено.
+Оно смягчает лесенки, но не повышает внутреннее разрешение и не добавляет
+детали текстурам. Мелкий текст тоже может стать мягче: выключи галочку,
+если предпочитаешь исходную картинку. Изменение применяется при перезапуске.
+Исправлена конкретная ошибка синхронизации записи буфера глубины.
+GPU-проверка воспроизводит нарушение до исправления и проходит без него после.
+Исчезновение чёрных прямоугольников во всех сценах пока не подтверждено.
+
+R9 добавляет экспериментальный режим PS4 Pro. Включи его в блоке
+«Изображение» и перезапусти игру. Для возврата к прежнему режиму сними галочку.
+Обычная PS4 остаётся режимом по умолчанию. Сглаживание краёв выключено
+по умолчанию, чтобы сохранять чёткость текста.
+Pro использует экран и рендер 1920×1080. Размер окна выбирается отдельно.
+Патч внутреннего рендера 2560×1440 ещё не готов.
+Исправлены обнаруженные ошибки перевода 16-битных графических инструкций,
+векторных значений SSA и чтения специальных регистров в операциях MIX.
+Это проверочная версия. В Pro 1080p обычный матч отображается и достигает
+примерно 55–60 FPS на тестовом компьютере между подгрузками шейдеров.
+Полный матч и карьера Pro пока не подтверждены. Путь вывода 4K отключён
+в лаунчере: в нём наблюдались чёрная сцена и примерно 30–40 FPS.
+
+Сохранена поддерживаемая возможность 16-битных данных в uniform-буферах,
 которую используют создаваемые шейдеры. Ранее она оставалась выключенной,
 что приводило к конкретным ошибкам проверки Vulkan.
 Это обоснованное исправление найденного нарушения Vulkan; устранение
@@ -74,7 +95,7 @@ Device lost в сцене с тренером на RTX 5060 пока не под
 https://github.com/torpedatorpeda/NHL24-Be-a-Pro
 Основа: https://github.com/HajDEO/nhl24pc и https://github.com/shadps4-emu/shadPS4
 """
-NOTICE = """NHL24 Be a Pro R7
+NOTICE = """NHL24 Be a Pro R9
 
 Launcher and native adaptations: GPL-2.0-or-later. See LICENSE.
 The emulator is derived from NHL24 PC / shadPS4. Original authorship,
@@ -93,11 +114,12 @@ No game data, save data, firmware, keys or dumped console modules are included.
 """
 
 
-def package(build: Path, output: Path) -> dict:
+def package(build: Path, output: Path, experimental_pro=False) -> dict:
     build = build.resolve()
     output = output.resolve()
     payload = {}
-    for name in FILES:
+    files = FILES + (("runtime/nhl_pro_fix.dll",) if experimental_pro else ("runtime/nhl_device_fix.dll",))
+    for name in files:
         source = build / name
         if source.is_symlink() or not source.is_file():
             raise ValueError(f"Missing or linked program asset: {name}")
@@ -110,13 +132,43 @@ def package(build: Path, output: Path) -> dict:
     for license_file in sorted((repo / "emulator-source" / "LICENSES").glob("*")):
         if license_file.is_file():
             payload["LICENSES/" + license_file.name] = license_file.read_bytes()
-    payload["README.txt"] = README.encode("utf-8-sig")
-    payload["THIRD-PARTY-NOTICES.txt"] = NOTICE.encode("utf-8")
+    revision = "R9-Pro-TEST" if experimental_pro else "R11"
+    readme = README.replace("полная сборка R9", "полная сборка " + revision)
+    if not experimental_pro:
+        start = readme.index("R9 добавляет экспериментальный режим")
+        end = readme.index("Сохранена поддерживаемая возможность", start)
+        readme = readme[:start] + """R10 разделяет обычное чтение и сравнение глубины у одной текстуры.
+Устранено подтверждённое нарушение Vulkan VUID-vkCmdDraw-None-06479.
+При первом запуске R10 старый кэш NHL 24 автоматически сохраняется
+в backups/shader-cache-... и создаётся заново, чтобы исправление применилось.
+Карьера, настройки и путь к игре при этом не меняются.
+Повторная компиляция может вызвать задержки в первые минуты.
+Это исправление конкретного графического дефекта. Устранение всех вылетов
+Device lost после матча и на других видеокартах пока не подтверждено.
+Длительный повтор матча пользователь не выполнял.
+Экспериментальные изменения PS4 Pro в R10 не включены.
+
+R11 исправляет две подтверждённые гонки общей памяти GPU:
+конкурирующую запись scratch-данных wave64 и отсутствие ожидания между
+чтением и условной записью. Эти нарушения исчезли в короткой GPU-проверке.
+Связь этих ошибок со всеми вылетами Device lost после матча пока не доказана.
+При повторном Device lost подробности сохраняются автоматически в
+%LOCALAPPDATA%\\NHL24-Be-a-Pro\\gpu-crashes
+Открой «Помощь» → «Отчёты о сбоях» и передай новые файлы разработчику.
+Если драйвер поддерживает подробную диагностику, там будут описание,
+адреса обращений и, при поддержке, двоичный отчёт. На других драйверах
+сохранится место обнаружения ошибки. Ничего не отправляется автоматически.
+Длительная диагностическая проверка матча для этого не требуется.
+
+""" + readme[end:]
+    payload["README.txt"] = readme.encode("utf-8-sig")
+    payload["THIRD-PARTY-NOTICES.txt"] = NOTICE.replace("Be a Pro R9", "Be a Pro " + revision).encode("utf-8")
     file_hashes = {name: hashlib.sha256(data).hexdigest() for name, data in sorted(payload.items())}
     metadata = {
-        "version": "R7", "kind": "full", "storage_version": 4,
+        "version": revision, "kind": "full", "storage_version": 4,
         "data_directory": "%LOCALAPPDATA%\\NHL24-Be-a-Pro",
-        "core_revision": "R6", "memory_revision": "R7-uniform16", "game_files_included": False,
+        "core_revision": "R9-pro-shaders" if experimental_pro else "R11-gpu-shared-memory-safety-and-device-fault",
+        "memory_revision": "R8-depth-store-and-edge-aa", "game_files_included": False,
         "source": "https://github.com/torpedatorpeda/NHL24-Be-a-Pro",
         "files": file_hashes,
     }
@@ -128,7 +180,7 @@ def package(build: Path, output: Path) -> dict:
     try:
         with zipfile.ZipFile(temporary, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
             for name, data in sorted(payload.items()):
-                entry = zipfile.ZipInfo("NHL24-Be-a-Pro/" + name, date_time=(2026, 10, 18, 0, 0, 0))
+                entry = zipfile.ZipInfo("NHL24-Be-a-Pro/" + name, date_time=(2026, 10, 19, 0, 0, 0))
                 entry.compress_type = zipfile.ZIP_DEFLATED
                 entry.external_attr = 0o100644 << 16
                 archive.writestr(entry, data)
@@ -149,5 +201,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--build", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--experimental-pro", action="store_true")
     args = parser.parse_args()
-    print(json.dumps(package(args.build, args.output), indent=2))
+    print(json.dumps(package(args.build, args.output, args.experimental_pro), indent=2))

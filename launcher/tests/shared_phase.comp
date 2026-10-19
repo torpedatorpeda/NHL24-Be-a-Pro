@@ -1,0 +1,16 @@
+#version 460
+#extension GL_KHR_shader_subgroup_basic : require
+layout(local_size_x=16, local_size_y=16, local_size_z=1) in;
+layout(set=0,binding=0,std430) buffer Output { uint values[]; } result;
+shared uint scratch[256];
+void main() {
+    uint index = gl_LocalInvocationIndex;
+    scratch[index] = index;
+    barrier();
+    uint before = scratch[index ^ 1u];
+    bool replace = before < 128u;
+    subgroupMemoryBarrierShared();
+    if (replace) scratch[index] = 1000u + index;
+    barrier();
+    result.values[index] = scratch[index];
+}

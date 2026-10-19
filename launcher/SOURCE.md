@@ -1,3 +1,12 @@
+# Graphics update R8, 2026-10-19
+
+R8 adds an optional edge-smoothing presentation shader and includes depth
+attachment stores in the source scope of existing image barriers. The real
+native hooks and a GPU control/corrected workload pass their checks; isolated
+game startup reaches the title screen. Full-match image improvement and the
+reported black-block scene remain unverified. All known unrelated validation
+errors remain visible. See docs/R8-GRAPHICS.md for scope and limitations.
+
 # Complete launcher R7, 2026-10-18
 
 R7 enables advertised uniformAndStorageBuffer16BitAccess in the device

@@ -112,8 +112,11 @@ public:
     }
 
     u32 Add(const ImageResource& desc) {
+        // A color sample and a depth comparison need different SPIR-V image
+        // declarations and host formats, even when their guest T# is identical.
         const u32 index{Add(image_resources, desc, [&desc](const auto& existing) {
             return desc.sharp_fetch == existing.sharp_fetch && desc.is_array == existing.is_array &&
+                   desc.is_depth == existing.is_depth &&
                    desc.mip_fallback_mode == existing.mip_fallback_mode &&
                    desc.constant_mip_index == existing.constant_mip_index &&
                    desc.post_op == existing.post_op;

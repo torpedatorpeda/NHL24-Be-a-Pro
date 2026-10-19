@@ -198,6 +198,12 @@ public:
     void V_MUL_F16(const GcnInst& inst);
     void V_MAX_F16(const GcnInst& inst);
     void V_MIN_F16(const GcnInst& inst);
+    void V_RCP_F16(const GcnInst& inst);
+    void V_SQRT_F16(const GcnInst& inst);
+    void V_LOG_F16(const GcnInst& inst);
+    void V_EXP_F16(const GcnInst& inst);
+    void V_MAD_F16(const GcnInst& inst);
+    void V_CMP_F16(const GcnInst& inst);
 
     // VOP1
     void V_MOV(const GcnInst& inst);

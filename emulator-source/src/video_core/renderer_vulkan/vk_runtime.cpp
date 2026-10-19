@@ -773,6 +773,20 @@ void Runtime::FlushBarriers() {
 
     scheduler.EndRendering();
     const auto cmdbuf = scheduler.CommandBuffer();
+    // A simultaneously sampled depth attachment still performs its store at
+    // EndRendering, after resource binding may have recorded ShaderRead.
+    // Include that store in the source scope of existing transitions.
+    for (auto& barrier : image_barriers) {
+        if ((barrier.subresourceRange.aspectMask &
+             (vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil)) &&
+            barrier.oldLayout != vk::ImageLayout::eUndefined &&
+            barrier.srcQueueFamilyIndex == VK_QUEUE_FAMILY_IGNORED &&
+            barrier.dstQueueFamilyIndex == VK_QUEUE_FAMILY_IGNORED) {
+            barrier.srcStageMask |= vk::PipelineStageFlagBits2::eEarlyFragmentTests |
+                                    vk::PipelineStageFlagBits2::eLateFragmentTests;
+            barrier.srcAccessMask |= vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
+        }
+    }
     cmdbuf.pipelineBarrier2(dep_info);
 
     memory_barrier.srcStageMask = vk::PipelineStageFlagBits2::eNone;

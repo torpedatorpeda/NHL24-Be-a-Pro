@@ -696,6 +696,8 @@ enum class OpcodeVOP3 : u32 {
     V_EXP_LEGACY_F32 = 454,
     V_RCP_F16 = 468,
     V_SQRT_F16 = 469,
+    V_LOG_F16 = 471,
+    V_EXP_F16 = 472,
 
     V_ADD_NC_U16 = 771,
     V_LSHRREV_B16 = 775,
@@ -815,8 +817,10 @@ enum class OpcodeVOP1 : u32 {
     V_EXP_LEGACY_F32 = 70,
     V_RCP_F16 = 84,
     V_SQRT_F16 = 85,
+    V_LOG_F16 = 87,
+    V_EXP_F16 = 88,
 
-    OP_RANGE_VOP1 = V_SQRT_F16 + 1,
+    OP_RANGE_VOP1 = V_EXP_F16 + 1,
 };
 
 enum class OpcodeVOPC : u32 {
@@ -1950,6 +1954,8 @@ enum class Opcode : u32 {
     V_EXP_LEGACY_F32 = 70 + (u32)OpcodeMap::OP_MAP_VOP1,
     V_RCP_F16 = 84 + (u32)OpcodeMap::OP_MAP_VOP1,
     V_SQRT_F16 = 85 + (u32)OpcodeMap::OP_MAP_VOP1,
+    V_LOG_F16 = 87 + (u32)OpcodeMap::OP_MAP_VOP1,
+    V_EXP_F16 = 88 + (u32)OpcodeMap::OP_MAP_VOP1,
     // VOP3
     V_MAD_LEGACY_F32 = 320 + (u32)OpcodeMap::OP_MAP_VOP3,
     V_MAD_F32 = 321 + (u32)OpcodeMap::OP_MAP_VOP3,

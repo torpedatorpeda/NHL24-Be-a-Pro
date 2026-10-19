@@ -84,6 +84,7 @@ void Translator::EmitVectorAlu(const GcnInst& inst) {
     case Opcode::V_ADD_I32:
         return V_ADD_I32(inst);
     case Opcode::V_SUB_I32:
+    case Opcode::V_SUB_CO_U32:
         return V_SUB_I32(inst);
     case Opcode::V_SUBREV_I32:
         return V_SUBREV_I32(inst);
@@ -111,6 +112,25 @@ void Translator::EmitVectorAlu(const GcnInst& inst) {
         return V_MAX_F16(inst);
     case Opcode::V_MIN_F16:
         return V_MIN_F16(inst);
+    case Opcode::V_RCP_F16:
+        return V_RCP_F16(inst);
+    case Opcode::V_SQRT_F16:
+        return V_SQRT_F16(inst);
+    case Opcode::V_LOG_F16:
+        return V_LOG_F16(inst);
+    case Opcode::V_EXP_F16:
+        return V_EXP_F16(inst);
+    case Opcode::V_MAD_F16:
+        return V_MAD_F16(inst);
+    case Opcode::V_CMP_F_F16:
+    case Opcode::V_CMP_LT_F16:
+    case Opcode::V_CMP_EQ_F16:
+    case Opcode::V_CMP_LE_F16:
+    case Opcode::V_CMP_GT_F16:
+    case Opcode::V_CMP_LG_F16:
+    case Opcode::V_CMP_GE_F16:
+    case Opcode::V_CMP_O_F16:
+        return V_CMP_F16(inst);
 
         // VOP1
     case Opcode::V_MOV_B32:
@@ -897,6 +917,58 @@ void Translator::V_MIN_F16(const GcnInst& inst) {
     const auto result = ir.FPMin(src0, src1);
 
     SetDst16(inst.dst[0], result);
+}
+
+void Translator::V_RCP_F16(const GcnInst& inst) {
+    SetDst16(inst.dst[0], ir.FPRecip(GetSrc16<IR::F32>(inst.src[0])));
+}
+
+void Translator::V_SQRT_F16(const GcnInst& inst) {
+    SetDst16(inst.dst[0], ir.FPSqrt(GetSrc16<IR::F32>(inst.src[0])));
+}
+
+void Translator::V_LOG_F16(const GcnInst& inst) {
+    SetDst16(inst.dst[0], ir.FPLog2(GetSrc16<IR::F32>(inst.src[0])));
+}
+
+void Translator::V_EXP_F16(const GcnInst& inst) {
+    SetDst16(inst.dst[0], ir.FPExp2(GetSrc16<IR::F32>(inst.src[0])));
+}
+
+void Translator::V_MAD_F16(const GcnInst& inst) {
+    const auto a = GetSrc16<IR::F32>(inst.src[0]);
+    const auto b = GetSrc16<IR::F32>(inst.src[1]);
+    const auto c = GetSrc16<IR::F32>(inst.src[2]);
+    const auto product = ir.FPConvert(32, ir.FPConvert(16, ir.FPMul(a, b)));
+    SetDst16(inst.dst[0], ir.FPAdd(IR::F32{product}, c));
+}
+
+void Translator::V_CMP_F16(const GcnInst& inst) {
+    const auto a = GetSrc16<IR::F32>(inst.src[0]);
+    const auto b = GetSrc16<IR::F32>(inst.src[1]);
+    const IR::U1 result = [&] {
+        switch (inst.opcode) {
+        case Opcode::V_CMP_F_F16:
+            return ir.Imm1(false);
+        case Opcode::V_CMP_LT_F16:
+            return ir.FPLessThan(a, b);
+        case Opcode::V_CMP_EQ_F16:
+            return ir.FPEqual(a, b);
+        case Opcode::V_CMP_LE_F16:
+            return ir.FPLessThanEqual(a, b);
+        case Opcode::V_CMP_GT_F16:
+            return ir.FPGreaterThan(a, b);
+        case Opcode::V_CMP_LG_F16:
+            return ir.FPNotEqual(a, b);
+        case Opcode::V_CMP_GE_F16:
+            return ir.FPGreaterThanEqual(a, b);
+        case Opcode::V_CMP_O_F16:
+            return ir.LogicalAnd(ir.FPEqual(a, a), ir.FPEqual(b, b));
+        default:
+            UNREACHABLE();
+        }
+    }();
+    SetDst64(inst.dst[1], ir.Ballot(result));
 }
 
 // VOP1

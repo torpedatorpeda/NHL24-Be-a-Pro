@@ -55,6 +55,7 @@ ImageInfo::ImageInfo(const Libraries::VideoOut::BufferAttributeGroup& group,
     ASSERT(num_bits == 32);
 
     guest_address = cpu_address;
+    alt_tile = props.is_tiled && Libraries::Kernel::sceKernelIsNeoMode();
     UpdateSize();
 }
 

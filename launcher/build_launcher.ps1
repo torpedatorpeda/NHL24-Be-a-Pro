@@ -2,7 +2,8 @@ param(
     [Parameter(Mandatory=$true)][string]$BaseEmulator,
     [Parameter(Mandatory=$true)][string]$Zig,
     [Parameter(Mandatory=$true)][string]$Python,
-    [string]$Out = (Join-Path $PSScriptRoot '..\build')
+    [string]$Out = (Join-Path $PSScriptRoot '..\build'),
+    [switch]$ExperimentalPro
 )
 $ErrorActionPreference = 'Stop'
 $nhlBuildOutput = [System.IO.Path]::GetFullPath($Out)
@@ -25,18 +26,43 @@ if ($LASTEXITCODE -ne 0) { throw 'Texture overlap integration failed' }
 if ($LASTEXITCODE -ne 0) { throw 'Mip alias integration failed' }
 & $Python (Join-Path $PSScriptRoot 'patch_texel_alias.py') --emulator (Join-Path $nhlRuntimeOutput 'nhl24.exe') --output (Join-Path $nhlRuntimeOutput 'nhl24.exe') --manifest (Join-Path $nhlBuildOutput 'texel-alias-manifest.json')
 if ($LASTEXITCODE -ne 0) { throw 'Texel alias integration failed' }
+& $Python (Join-Path $PSScriptRoot 'patch_graphics.py') --emulator (Join-Path $nhlRuntimeOutput 'nhl24.exe') --output (Join-Path $nhlRuntimeOutput 'nhl24.exe') --manifest (Join-Path $nhlBuildOutput 'graphics-manifest.json')
+if ($LASTEXITCODE -ne 0) { throw 'Graphics integration failed' }
+if ($ExperimentalPro) {
+& $Zig cc -target x86_64-windows-gnu -O2 -Wall -Wextra -shared (Join-Path $PSScriptRoot 'pro_shader_fix.c') -o (Join-Path $nhlRuntimeOutput 'nhl_pro_fix.dll')
+if ($LASTEXITCODE -ne 0) { throw 'Pro shader module compilation failed' }
+& $Python (Join-Path $PSScriptRoot 'patch_pro.py') --emulator (Join-Path $nhlRuntimeOutput 'nhl24.exe') --output (Join-Path $nhlRuntimeOutput 'nhl24.exe') --manifest (Join-Path $nhlBuildOutput 'pro-manifest.json')
+if ($LASTEXITCODE -ne 0) { throw 'Pro shader integration failed' }
+} else {
+    & $Python (Join-Path $PSScriptRoot 'patch_image_depth.py') --emulator (Join-Path $nhlRuntimeOutput 'nhl24.exe') --output (Join-Path $nhlRuntimeOutput 'nhl24.exe') --manifest (Join-Path $nhlBuildOutput 'image-depth-manifest.json')
+    if ($LASTEXITCODE -ne 0) { throw 'Image descriptor integration failed' }
+    & $Zig cc -target x86_64-windows-gnu -O2 -Wall -Wextra -shared (Join-Path $PSScriptRoot 'device_safety.c') -o (Join-Path $nhlRuntimeOutput 'nhl_device_fix.dll')
+    if ($LASTEXITCODE -ne 0) { throw 'GPU safety module compilation failed' }
+    & $Python (Join-Path $PSScriptRoot 'patch_device_safety.py') --emulator (Join-Path $nhlRuntimeOutput 'nhl24.exe') --output (Join-Path $nhlRuntimeOutput 'nhl24.exe') --manifest (Join-Path $nhlBuildOutput 'device-safety-manifest.json')
+    if ($LASTEXITCODE -ne 0) { throw 'GPU safety integration failed' }
+}
 $nhlLauncherSource = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'NHL24Launcher.cs') -Raw
-$nhlLauncherSource = $nhlLauncherSource.Replace('3ca5faab3240fbd0157121d0421ff11c9b86ba1a32f12abf2c4d87af733a9c04', (Get-FileHash -LiteralPath (Join-Path $nhlRuntimeOutput 'nhl24.exe')).Hash.ToLowerInvariant())
-$nhlLauncherSource = $nhlLauncherSource.Replace('7a3320c7a645bb9a80a2ca126bf29c54d860dd795db118154a1ef55807941932', (Get-FileHash -LiteralPath (Join-Path $nhlRuntimeOutput 'nhl_shader_fix.dll')).Hash.ToLowerInvariant())
-$nhlLauncherSource = $nhlLauncherSource.Replace('c41560ed48dceab55df71f801eb250b699f7c9d8bab8fe2ccc08882aeb2e67c5', (Get-FileHash -LiteralPath (Join-Path $nhlRuntimeOutput 'nhl_memory_fix.dll')).Hash.ToLowerInvariant())
+$nhlIntegrityFiles = @('nhl24.exe', 'nhl_shader_fix.dll', 'nhl_memory_fix.dll')
+if ($ExperimentalPro) { $nhlIntegrityFiles += 'nhl_pro_fix.dll' }
+else { $nhlIntegrityFiles += 'nhl_device_fix.dll' }
+foreach ($nhlIntegrityFile in $nhlIntegrityFiles) {
+    $nhlIntegrityHash = (Get-FileHash -LiteralPath (Join-Path $nhlRuntimeOutput $nhlIntegrityFile)).Hash.ToLowerInvariant()
+    $nhlIntegrityPattern = '(\{\s*"' + [regex]::Escape($nhlIntegrityFile) + '",\s*")[a-f0-9]{64}("\s*\})'
+    if ([regex]::Matches($nhlLauncherSource, $nhlIntegrityPattern).Count -ne 1) { throw "Missing integrity entry: $nhlIntegrityFile" }
+    $nhlLauncherSource = [regex]::Replace($nhlLauncherSource, $nhlIntegrityPattern, [System.Text.RegularExpressions.MatchEvaluator]{ param($match) $match.Groups[1].Value + $nhlIntegrityHash + $match.Groups[2].Value })
+}
 $nhlGeneratedSource = Join-Path $nhlBuildOutput 'NHL24Launcher.build.cs'
 [System.IO.File]::WriteAllText($nhlGeneratedSource, $nhlLauncherSource, [System.Text.UTF8Encoding]::new($false))
 $nhlCSharp = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
-& $nhlCSharp /nologo /target:winexe /optimize+ "/out:$(Join-Path $nhlBuildOutput 'NHL24Launcher.exe')" /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Web.Extensions.dll $nhlGeneratedSource (Join-Path $PSScriptRoot 'LauncherData.cs')
+$nhlBuildDefine = if ($ExperimentalPro) { '/define:EXPERIMENTAL_PRO' } else { '/define:STANDARD_BUILD' }
+& $nhlCSharp /nologo /target:winexe /optimize+ $nhlBuildDefine "/out:$(Join-Path $nhlBuildOutput 'NHL24Launcher.exe')" /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Web.Extensions.dll $nhlGeneratedSource (Join-Path $PSScriptRoot 'LauncherData.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Launcher compilation failed' }
 foreach ($nhlRuntimeName in @('msvcp140.dll', 'msvcp140_atomic_wait.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')) {
     Copy-Item -LiteralPath (Join-Path (Split-Path -Parent $BaseEmulator) $nhlRuntimeName) -Destination $nhlRuntimeOutput
 }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'defaults') -Destination $nhlBuildOutput -Recurse
-& $Python (Join-Path $PSScriptRoot 'package_full.py') --build $nhlBuildOutput --output (Join-Path $nhlBuildOutput 'NHL24-Be-a-Pro-Full-R7.zip')
+$nhlPackageRevision = if ($ExperimentalPro) { 'R9-Pro-TEST' } else { 'R11' }
+$nhlPackageArguments = @((Join-Path $PSScriptRoot 'package_full.py'), '--build', $nhlBuildOutput, '--output', (Join-Path $nhlBuildOutput "NHL24-Be-a-Pro-Full-$nhlPackageRevision.zip"))
+if ($ExperimentalPro) { $nhlPackageArguments += '--experimental-pro' }
+& $Python @nhlPackageArguments
 if ($LASTEXITCODE -ne 0) { throw 'Full package verification failed' }

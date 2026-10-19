@@ -505,7 +505,11 @@ T Translator::GetSrc16(const InstOperand& operand) {
         }
     };
 
-    const auto op_sel = operand.op_sel.op_sel;
+    const bool sdwa_word = is_float &&
+        (operand.sdwa_sel == SdwaSelector::Word0 || operand.sdwa_sel == SdwaSelector::Word1 ||
+         operand.sdwa_sel == SdwaSelector::Dword);
+    const bool op_sel = sdwa_word ? operand.sdwa_sel == SdwaSelector::Word1
+                                 : operand.op_sel.op_sel;
 
     // nhlport: 16-bit reads of the special scalar registers (VCC, M0, SCC, EXEC) select a half of
     // the 32-bit register value like a scalar GPR does.
@@ -626,6 +630,21 @@ template IR::U32 Translator::GetSrc16<IR::U32, true>(const InstOperand&);
 template IR::F32 Translator::GetSrc16<IR::F32, false>(const InstOperand&);
 
 IR::F32 Translator::GetSrcMix(const InstOperand& operand) {
+    switch (operand.field) {
+    case OperandField::VccHi:
+    case OperandField::M0:
+    case OperandField::Scc:
+    case OperandField::ExecLo:
+    case OperandField::ExecHi: {
+        auto selected = operand;
+        selected.input_modifier.abs = operand.input_modifier.neg_hi;
+        selected.input_modifier.neg_hi = false;
+        return operand.op_sel.op_sel_hi ? GetSrc16<IR::F32>(selected)
+                                       : GetSrc<IR::F32>(selected);
+    }
+    default:
+        break;
+    }
     const auto get_imm = [&](auto value) -> IR::F32 {
         return ir.Imm32(std::bit_cast<float>(value));
     };
@@ -1052,18 +1071,24 @@ void Translator::SetDst16(const InstOperand& operand, const IR::U32F32& value) {
         }
     };
 
-    const auto op_sel = operand.op_sel.op_sel;
+    const bool sdwa_word =
+        (operand.sdwa_sel == SdwaSelector::Word0 || operand.sdwa_sel == SdwaSelector::Word1 ||
+         operand.sdwa_sel == SdwaSelector::Dword) &&
+        (operand.sdwa_dst == SdwaDstUnused::Pad || operand.sdwa_dst == SdwaDstUnused::Preserve);
+    const bool op_sel = sdwa_word ? operand.sdwa_sel == SdwaSelector::Word1
+                                 : operand.op_sel.op_sel;
+    const bool pad = sdwa_word && operand.sdwa_dst == SdwaDstUnused::Pad;
 
     switch (operand.field) {
     case OperandField::ScalarGPR: {
-        const auto prev_dst = ir.GetScalarReg<IR::U32>(IR::ScalarReg(operand.code));
+        const auto prev_dst = pad ? ir.Imm32(0u) : ir.GetScalarReg<IR::U32>(IR::ScalarReg(operand.code));
         const auto result_16 = cast(result);
         const auto new_dst =
             ir.BitFieldInsert(prev_dst, result_16, ir.Imm32(op_sel ? 16 : 0), ir.Imm32(16));
         return ir.SetScalarReg(IR::ScalarReg(operand.code), new_dst);
     }
     case OperandField::VectorGPR: {
-        const auto prev_dst = ir.GetVectorReg<IR::U32>(IR::VectorReg(operand.code));
+        const auto prev_dst = pad ? ir.Imm32(0u) : ir.GetVectorReg<IR::U32>(IR::VectorReg(operand.code));
         const auto result_16 = cast(result);
         const auto new_dst =
             ir.BitFieldInsert(prev_dst, result_16, ir.Imm32(op_sel ? 16 : 0), ir.Imm32(16));

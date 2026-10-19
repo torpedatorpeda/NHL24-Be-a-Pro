@@ -14,12 +14,23 @@ using System.Web.Script.Serialization;
 using System.Windows.Forms;
 
 internal sealed class NHL24Launcher : Form {
+#if EXPERIMENTAL_PRO
+    const string BuildRevision = "R9 Pro (тест)";
+    static readonly bool SupportsPro = true;
+    const int ProExtraHeight = 48;
+#else
+    const string BuildRevision = "R11";
+    static readonly bool SupportsPro = false;
+    const int ProExtraHeight = 0;
+#endif
     readonly string root = AppDomain.CurrentDomain.BaseDirectory;
     readonly LauncherData storage;
     readonly TextBox gameFolder = new TextBox();
     readonly ComboBox mode = new LauncherComboBox();
     readonly ComboBox resolution = new LauncherComboBox();
     readonly CheckBox vsync = new CheckBox();
+    readonly CheckBox edgeSmoothing = new CheckBox();
+    readonly CheckBox proMode = new CheckBox();
     readonly ComboBox upscaler = new LauncherComboBox();
     readonly CheckBox sharpening = new CheckBox();
     readonly TrackBar sharpness = new TrackBar();
@@ -55,7 +66,7 @@ internal sealed class NHL24Launcher : Form {
         storage = data;
         Text = "NHL 24 • Be a Pro";
         DoubleBuffered = true;
-        ClientSize = new Size(860, 738);
+        ClientSize = new Size(860, 738 + ProExtraHeight);
         MinimumSize = MaximumSize = Size;
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = LauncherTheme.Background;
@@ -65,7 +76,7 @@ internal sealed class NHL24Launcher : Form {
         AddLabel("NHL 24", 28, 16, 420, 68, 38, FontStyle.Bold | FontStyle.Italic);
         var subtitle = AddLabel("Be a Pro", 34, 86, 420, 28, 13, FontStyle.Regular);
         subtitle.ForeColor = LauncherTheme.Muted;
-        var version = AddLabel("ЕДИНАЯ СБОРКА  R7", 655, 36, 177, 24, 9, FontStyle.Bold);
+        var version = AddLabel("ЕДИНАЯ СБОРКА  " + BuildRevision, 655, 36, 177, 24, 9, FontStyle.Bold);
         version.TextAlign = ContentAlignment.MiddleCenter;
         version.ForeColor = LauncherTheme.Accent;
 
@@ -128,20 +139,33 @@ internal sealed class NHL24Launcher : Form {
         vsync.Text = "Вертикальная синхронизация";
         vsync.Checked = true;
         vsync.BackColor = LauncherTheme.Card;
-        vsync.SetBounds(48, 506, 600, 30);
+        vsync.SetBounds(48, 506, 365, 30);
         Controls.Add(vsync);
+        edgeSmoothing.Text = "Сглаживание краёв";
+        edgeSmoothing.Checked = false;
+        edgeSmoothing.BackColor = LauncherTheme.Card;
+        edgeSmoothing.SetBounds(455, 506, 357, 30);
+        edgeSmoothing.CheckedChanged += delegate { MarkSettingsChanged(); };
+        Controls.Add(edgeSmoothing);
+        proMode.Text = "PS4 Pro — экспериментальный режим, рендер 1080p";
+        proMode.SetBounds(48, 548, 764, 30);
+        proMode.BackColor = LauncherTheme.Card;
+        proMode.CheckedChanged += delegate { MarkSettingsChanged(); };
+        if (SupportsPro) Controls.Add(proMode);
+        tips.SetToolTip(proMode, "Включает PS4 Pro с экраном 1080p. Вывод 4K пока вызывает чёрную сцену; патч рендера 1440p ещё не готов. Размер окна выбирается отдельно. Для обычной PS4 сними галочку.");
+        tips.SetToolTip(edgeSmoothing, "Смягчает лесенки по краям объектов. Может немного смягчить мелкий текст. Не повышает внутреннее разрешение и не заменяет текстуры.");
         tips.SetToolTip(upscaler, "FSR 1.0 улучшает масштабирование изображения при выводе в большем разрешении.");
         tips.SetToolTip(sharpening, "Включает AMD FSR 1.0 и регулировку резкости RCAS. Сними галочку, чтобы отключить резкость.");
         tips.SetToolTip(sharpness, "Чем выше значение, тем резче картинка. 0% — минимальная, 100% — максимальная резкость.");
 
-        status.SetBounds(50, 576, 762, 42);
+        status.SetBounds(50, 576 + ProExtraHeight, 762, 42);
         status.ForeColor = LauncherTheme.Muted;
         status.TextAlign = ContentAlignment.MiddleLeft;
         status.Text = gameFolder.Text.Length == 0 ? "Выбери папку NHL 24, чтобы начать." : storage.StartupMessage;
-        status.TextChanged += delegate { Invalidate(new Rectangle(28, 576, 20, 42)); };
+        status.TextChanged += delegate { Invalidate(new Rectangle(28, 576 + ProExtraHeight, 20, 42)); };
         Controls.Add(status);
         play.Text = "ИГРАТЬ";
-        play.SetBounds(326, 624, 506, 64);
+        play.SetBounds(326, 624 + ProExtraHeight, 506, 64);
         play.FlatStyle = FlatStyle.Flat;
         play.FlatAppearance.BorderSize = 0;
         play.BackColor = LauncherTheme.Accent;
@@ -150,7 +174,7 @@ internal sealed class NHL24Launcher : Form {
         play.Click += async delegate { await StartGame(); };
         Controls.Add(play);
         save.Text = "Сохранить настройки";
-        save.SetBounds(28, 634, 278, 54);
+        save.SetBounds(28, 634 + ProExtraHeight, 278, 54);
         save.BackColor = LauncherTheme.Field;
         save.ForeColor = LauncherTheme.Text;
         save.FlatStyle = FlatStyle.Flat;
@@ -160,13 +184,13 @@ internal sealed class NHL24Launcher : Form {
         };
         Controls.Add(save);
         var help = new LinkLabel { Text = "Помощь", LinkColor = LauncherTheme.Muted, ActiveLinkColor = LauncherTheme.Accent, AutoSize = true, LinkBehavior = LinkBehavior.HoverUnderline, Font = new Font("Segoe UI", 9) };
-        help.SetBounds(32, 708, 190, 22);
+        help.SetBounds(32, 708 + ProExtraHeight, 190, 22);
         help.LinkClicked += delegate { ShowHelp(); };
         Controls.Add(help);
-        var retention = AddLabel("Карьера останется при обновлении", 385, 706, 447, 24, 9, FontStyle.Regular);
+        var retention = AddLabel("Карьера останется при обновлении", 385, 706 + ProExtraHeight, 447, 24, 9, FontStyle.Regular);
         retention.TextAlign = ContentAlignment.MiddleRight;
         retention.ForeColor = LauncherTheme.Muted;
-        Log("Unified launcher R7 started; storage=LocalAppData; uniform16=enable-if-supported; texel-alias=bounds-and-base-offset; mip-alias=compatible-base-view; texture-footprint=expand-compatible; readbacks=graphics-serialized; Windows=" + Environment.OSVersion.VersionString);
+        Log("Unified launcher " + BuildRevision + " started; storage=LocalAppData; pro=" + SupportsPro + "; image-depth=" + !SupportsPro + "; gpu-shared-memory-safety=" + !SupportsPro + "; device-fault=if-supported; depth-store=tracked; edge-smoothing=opt-in; uniform16=enable-if-supported; texel-alias=bounds-and-base-offset; mip-alias=compatible-base-view; texture-footprint=expand-compatible; readbacks=graphics-serialized; Windows=" + Environment.OSVersion.VersionString);
         LoadSettings();
         settingsLoaded = true;
         mode.SelectedIndexChanged += delegate { MarkSettingsChanged(); };
@@ -200,12 +224,12 @@ internal sealed class NHL24Launcher : Form {
         }
         g.Restore(saved);
         using (var card = new SolidBrush(LauncherTheme.Card)) using (var border = new Pen(LauncherTheme.Border)) {
-            foreach (var bounds in new[] { new Rectangle(28, 134, 804, 108), new Rectangle(28, 258, 804, 302) })
+            foreach (var bounds in new[] { new Rectangle(28, 134, 804, 108), new Rectangle(28, 258, 804, 302 + ProExtraHeight) })
                 using (var shape = LauncherTheme.Round(bounds, 16)) { g.FillPath(card, shape); g.DrawPath(border, shape); }
         }
         using (var field = new SolidBrush(LauncherTheme.Field)) using (var shape = LauncherTheme.Round(new Rectangle(48, 186, 610, 36), 8)) g.FillPath(field, shape);
         using (var border = new Pen(Color.FromArgb(44, 83, 89))) using (var shape = LauncherTheme.Round(new Rectangle(653, 34, 179, 28), 14)) g.DrawPath(border, shape);
-        using (var dot = new SolidBrush(status.Text.StartsWith("Есть изменения", StringComparison.Ordinal) ? Color.FromArgb(236, 185, 98) : LauncherTheme.Accent)) g.FillEllipse(dot, 32, 593, 7, 7);
+        using (var dot = new SolidBrush(status.Text.StartsWith("Есть изменения", StringComparison.Ordinal) ? Color.FromArgb(236, 185, 98) : LauncherTheme.Accent)) g.FillEllipse(dot, 32, 593 + ProExtraHeight, 7, 7);
     }
     void StyleCombo(ComboBox combo, int x, int y, int width) {
         combo.SetBounds(x, y, width, 34);
@@ -310,7 +334,7 @@ internal sealed class NHL24Launcher : Form {
         }
     }
     void ShowHelp() {
-        using (var dialog = CreateDialog("Помощь", 374)) {
+        using (var dialog = CreateDialog("Помощь", 426)) {
             DialogText(dialog, "Помощь", 22, 42, true);
             DialogText(dialog, "Сохранения, перенос карьеры и журналы запуска.\nНичего не отправляется автоматически.", 78, 52);
             DialogButton(dialog, "Сохранения и карьера", 24, 151, 572).Click += delegate { ShowSaves(dialog); };
@@ -319,8 +343,9 @@ internal sealed class NHL24Launcher : Form {
                 catch (Exception ex) { MessageBox.Show(dialog, ex.Message, "Журнал запуска"); }
             };
             DialogButton(dialog, "Все файлы и журналы", 318, 207, 278).Click += delegate { OpenFolder(dialog, storage.DataRoot); };
-            DialogText(dialog, "FSR и резкость работают при увеличении изображения.\nСовместимость кат-сцен включена; в отдельных сценах FPS ниже.", 266, 48);
-            var close = DialogButton(dialog, "Закрыть", 440, 324, 156); close.DialogResult = DialogResult.Cancel; dialog.CancelButton = close;
+            DialogButton(dialog, "Отчёты о сбоях", 24, 263, 572).Click += delegate { OpenFolder(dialog, Path.Combine(storage.DataRoot, "gpu-crashes")); };
+            DialogText(dialog, "FSR и резкость работают при увеличении изображения.\nСовместимость кат-сцен включена; в отдельных сценах FPS ниже.", 318, 48);
+            var close = DialogButton(dialog, "Закрыть", 440, 376, 156); close.DialogResult = DialogResult.Cancel; dialog.CancelButton = close;
             dialog.ShowDialog(this);
         }
     }
@@ -391,8 +416,11 @@ internal sealed class NHL24Launcher : Form {
         bool wasLoaded = settingsLoaded;
         settingsLoaded = false;
         try {
-            var gpu = (Dictionary<string, object>)ReadConfig()["GPU"];
-            object value;
+            var config = ReadConfig();
+            var gpu = (Dictionary<string, object>)config["GPU"];
+            object value = null;
+            var general = (Dictionary<string, object>)config["General"];
+            proMode.Checked = SupportsPro && general.TryGetValue("neo_mode", out value) && Convert.ToBoolean(value);
             if (gpu.TryGetValue("full_screen", out value)) mode.SelectedIndex = Convert.ToBoolean(value) ? 0 : 1;
             if (gpu.TryGetValue("window_width", out value)) {
                 int index = Array.IndexOf(new[] { 1280, 1920, 2560 }, Convert.ToInt32(value));
@@ -402,6 +430,8 @@ internal sealed class NHL24Launcher : Form {
             upscaler.SelectedIndex = gpu.TryGetValue("fsr_enabled", out value) && Convert.ToBoolean(value) ? 1 : 0;
             sharpening.Checked = upscaler.SelectedIndex == 1 && gpu.TryGetValue("rcas_enabled", out value) && Convert.ToBoolean(value);
             sharpness.Value = 3000 - Clamp(gpu.TryGetValue("rcas_attenuation", out value) ? Convert.ToInt32(value) : 250, 0, 3000);
+            var displaySettings = ReadLauncherSettings();
+            edgeSmoothing.Checked = displaySettings.TryGetValue("edge_smoothing", out value) && Convert.ToBoolean(value);
         } catch (Exception ex) {
             status.Text = "Не удалось прочитать настройки. Открой папку данных для проверки.";
             tips.SetToolTip(status, ex.Message);
@@ -420,9 +450,14 @@ internal sealed class NHL24Launcher : Form {
         gpu["fsr_enabled"] = upscaler.SelectedIndex == 1;
         gpu["rcas_enabled"] = upscaler.SelectedIndex == 1 && sharpening.Checked;
         gpu["rcas_attenuation"] = 3000 - sharpness.Value;
+        ((Dictionary<string, object>)config["General"])["neo_mode"] = proMode.Checked;
+        // Advertising more than 1080p selects the game's currently broken 4K path.
+        gpu["internal_screen_width"] = 1920;
+        gpu["internal_screen_height"] = 1080;
         if (forLaunch) ((Dictionary<string, object>)config["General"])["redzone_patches"] = true;
         var launcherSettings = ReadLauncherSettings();
         launcherSettings["compatible_cutscenes"] = true;
+        launcherSettings["edge_smoothing"] = edgeSmoothing.Checked;
         WriteJson(storage.UserFile("launcher_settings.json"), launcherSettings);
         WriteJson(storage.UserFile("config.json"), config);
     }
@@ -435,7 +470,7 @@ internal sealed class NHL24Launcher : Form {
         } finally { if (File.Exists(temp)) File.Delete(temp); }
     }
     void SetSettingsEnabled(bool enabled) {
-        foreach (Control control in new Control[] { play, save, gameFolder, mode, resolution, vsync, upscaler }) control.Enabled = enabled;
+        foreach (Control control in new Control[] { play, save, gameFolder, mode, resolution, vsync, upscaler, edgeSmoothing, proMode }) control.Enabled = enabled;
         UpdateSharpeningControls();
     }
     async Task StartGame() {
@@ -443,8 +478,8 @@ internal sealed class NHL24Launcher : Form {
             if (!Environment.Is64BitOperatingSystem) throw new InvalidOperationException("Эта сборка требует 64-разрядную Windows.");
             string exe = Path.Combine(storage.RuntimeRoot, "nhl24.exe");
             var missing = new List<string>();
-            foreach (string file in new[] { "nhl24.exe", "nhl_shader_fix.dll", "nhl_memory_fix.dll", "msvcp140.dll", "msvcp140_atomic_wait.dll", "vcruntime140.dll", "vcruntime140_1.dll" })
-                if (!File.Exists(Path.Combine(storage.RuntimeRoot, file))) missing.Add(file);
+            foreach (string file in new[] { "nhl24.exe", "nhl_shader_fix.dll", "nhl_memory_fix.dll", "nhl_device_fix.dll", "nhl_pro_fix.dll", "msvcp140.dll", "msvcp140_atomic_wait.dll", "vcruntime140.dll", "vcruntime140_1.dll" })
+                if ((SupportsPro ? file != "nhl_device_fix.dll" : file != "nhl_pro_fix.dll") && !File.Exists(Path.Combine(storage.RuntimeRoot, file))) missing.Add(file);
             foreach (string file in new[] { "config.json", "patches\\nhl24.xml" })
                 if (!File.Exists(storage.UserFile(file))) missing.Add("данные: " + file);
             if (missing.Count != 0) throw new InvalidOperationException("В комплекте не хватает: " + string.Join(", ", missing) + ".\nРаспакуй весь ZIP в отдельную папку и запускай оттуда.");
@@ -454,17 +489,25 @@ internal sealed class NHL24Launcher : Form {
             Log("Start requested; game=" + path);
             if (!File.Exists(path)) throw new InvalidOperationException("В выбранной папке нет eboot.bin. Укажи папку установленной игры на этом компьютере.");
             var expectedHashes = new Dictionary<string, string> {
-                { "nhl24.exe", "3ca5faab3240fbd0157121d0421ff11c9b86ba1a32f12abf2c4d87af733a9c04" },
-                { "nhl_shader_fix.dll", "7a3320c7a645bb9a80a2ca126bf29c54d860dd795db118154a1ef55807941932" },
-                { "nhl_memory_fix.dll", "c41560ed48dceab55df71f801eb250b699f7c9d8bab8fe2ccc08882aeb2e67c5" }
+                { "nhl24.exe", "7da683cce9a6fbe4c7a56b9a6b762d80c6561f455e6b6fd4d60274afa3155d14" },
+                { "nhl_shader_fix.dll", "c2430fc437618b23a5b47aca53610440ae9b03160f3fd7f55289de3f549a01ba" },
+                { "nhl_memory_fix.dll", "78fc7ec21a0b7984f40f2e25476f1d8bd99411a0ac02137389d14365227280ea" }
+#if EXPERIMENTAL_PRO
+                ,
+                { "nhl_pro_fix.dll", "0000000000000000000000000000000000000000000000000000000000000000" }
+#else
+                ,
+                { "nhl_device_fix.dll", "1f1e9004b5ad829963de2969c9889a21cbb2cb8c29cf2009727622ee3aa6abbd" }
+#endif
             };
             foreach (var expected in expectedHashes) {
                 using (var sha = SHA256.Create()) using (var input = File.OpenRead(Path.Combine(storage.RuntimeRoot, expected.Key))) {
                     string hash = BitConverter.ToString(sha.ComputeHash(input)).Replace("-", "").ToLowerInvariant();
-                    if (hash != expected.Value) throw new InvalidOperationException("Файл " + expected.Key + " отличается от подготовленной сборки. Распакуй полный архив R7 целиком.");
+                    if (hash != expected.Value) throw new InvalidOperationException("Файл " + expected.Key + " отличается от подготовленной сборки. Распакуй полный архив " + BuildRevision + " целиком.");
                 }
             }
             if (Process.GetProcessesByName("nhl24").Length != 0) throw new InvalidOperationException("NHL 24 уже запущена. Закрой игру перед повторным запуском.");
+            if (!SupportsPro && storage.EnsureShaderCacheRevision("image-depth-v1")) Log("Shader cache revision changed; previous NHL 24 cache retained in backups; career unchanged.");
             SaveSettings(true);
             File.WriteAllText(storage.UserFile("game_path.txt"), path + Environment.NewLine);
             SetSettingsEnabled(false);
@@ -472,7 +515,8 @@ internal sealed class NHL24Launcher : Form {
             var start = new ProcessStartInfo(exe) { WorkingDirectory = storage.DataRoot, UseShellExecute = false };
             if (File.Exists(Path.Combine(root, "diagnostics.enabled"))) start.EnvironmentVariables["NHL_SHADER_DIAGNOSTICS"] = "1";
             start.EnvironmentVariables["NHLPORT_READBACK_DRAIN"] = "1";
-            Log("Graphics: FSR=" + (upscaler.SelectedIndex == 1) + "; RCAS=" + sharpening.Checked + "; attenuation=" + (3000 - sharpness.Value) + "; readbacks=graphics-serialized (enforced in core)");
+            start.EnvironmentVariables["NHL24_EDGE_AA"] = edgeSmoothing.Checked ? "1" : "0";
+            Log("Graphics: PS4Pro=" + proMode.Checked + "; FSR=" + (upscaler.SelectedIndex == 1) + "; RCAS=" + sharpening.Checked + "; attenuation=" + (3000 - sharpness.Value) + "; edge-smoothing=" + edgeSmoothing.Checked + "; readbacks=graphics-serialized (enforced in core)");
             DateTime launchUtc = DateTime.UtcNow;
             game = Process.Start(start);
             Log("Game process started; PID=" + game.Id);
@@ -485,6 +529,15 @@ internal sealed class NHL24Launcher : Form {
             WindowState = FormWindowState.Normal;
             status.Text = code == 0 ? "Игра закрыта. Можно запустить снова." : "Игра завершилась: " + hex + ". Подробности — в журнале запуска.";
             if (unchecked((uint)code) == 0xcfffffff) status.Text = "Игра перестала отвечать (0xCFFFFFFF). Открой журнал запуска.";
+            if (code != 0) {
+                string reports = Path.Combine(storage.DataRoot, "gpu-crashes");
+                if (Directory.Exists(reports)) foreach (string report in Directory.GetFiles(reports, "*.txt")) {
+                    if (File.GetLastWriteTimeUtc(report) < launchUtc) continue;
+                    Log("GPU fault report saved: " + report);
+                    status.Text = "Игра завершилась: " + hex + ". Отчёт сохранён: «Помощь» → «Отчёты о сбоях».";
+                    break;
+                }
+            }
         } catch (Exception ex) {
             Log("Start failed: " + ex);
             status.Text = "Запуск не выполнен. Причина записана в launcher.log.";

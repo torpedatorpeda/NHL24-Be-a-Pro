@@ -1,3 +1,38 @@
+# R11 GPU safety and fault-report checks
+
+- All six mapped runtime dispatch thunks preserve arguments and results.
+  The native adapter retains original structures, handles, callbacks and
+  non-DeviceLost error codes. Mock fault tests preserve the feature chain
+  and create exactly one complete report from four simultaneous error paths.
+- Of 199 captured modules, two receive shared-memory repairs. Their SPIR-V
+  validates, repair is idempotent, and unsupported modules are unchanged.
+- A real RTX 4060 Ti compute fixture reproduces six read/write race reports
+  before repair and none after, returning all 256 expected output values.
+- A short game run reaches the start screen with both observed shared-memory
+  race reports gone. Device-fault and vendor-binary features are accepted.
+  Other mip-count and shader-interface validation findings remain.
+- The complete R11 bundle builds from the pinned original. R8 forwarding
+  tests and all 64 R10 image-depth cases pass against the final runtime.
+  Archive contents, checksums and exclusion of private data/Pro are verified.
+- No complete R11 career match or original post-match crash reproduction
+  was performed. These checks do not prove that every DeviceLost is fixed.
+  No full source/CMake build or actual GPU reset was performed.
+  See [R11-DEVICE-SAFETY.md](R11-DEVICE-SAFETY.md).
+
+# R8 graphics checks
+
+- The mapped R8 executable and actual DLL pass the forwarding/preservation
+  checks in `launcher/tests/validate_graphics.py`. Both modified calls and
+  the new import slots are exercised without emulator startup.
+- `validate_depth_store.c` reproduces the old depth-store synchronization
+  hazard on RTX 4060 Ti (one error). The same GPU workload using the helper
+  completes with zero validation errors.
+- The new presentation SPIR-V passes Vulkan 1.3 validation. With smoothing
+  enabled, the isolated game reaches the title screen; no depth-store or
+  uniform16 violations appear. Existing unrelated violations remain visible.
+- Full-match quality improvement and removal of the reported black scene
+  blocks are not established. See [R8-GRAPHICS.md](R8-GRAPHICS.md).
+
 # R7 feature-adapter checks
 
 - Fifteen checks cover supported/unsupported/already-enabled uniform16,

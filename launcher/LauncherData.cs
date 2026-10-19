@@ -25,6 +25,32 @@ internal sealed class LauncherData {
     public string UserFile(string relative) { return Path.Combine(UserRoot, relative); }
     public string LogFile { get { return Path.Combine(DataRoot, "launcher.log"); } }
 
+    public bool EnsureShaderCacheRevision(string revision) {
+        string marker = Path.Combine(DataRoot, "shader-cache-revision.txt");
+        if (File.Exists(marker) && File.ReadAllText(marker).Trim() == revision) return false;
+        string cacheRoot = UserFile("cache");
+        string backup = Path.Combine(DataRoot, "backups", "shader-cache-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N"));
+        if (Directory.Exists(cacheRoot) && (File.GetAttributes(cacheRoot) & FileAttributes.ReparsePoint) != 0)
+            throw new IOException("Папка кэша является ссылкой. Перед обновлением проверь её расположение через «Помощь».");
+        foreach (string name in new[] { "CUSA37933", "CUSA37933.zip" }) {
+            string source = Path.Combine(cacheRoot, name);
+            if (!File.Exists(source) && !Directory.Exists(source)) continue;
+            if ((File.GetAttributes(source) & FileAttributes.ReparsePoint) != 0)
+                throw new IOException("Кэш NHL 24 является ссылкой. Не удалось безопасно пересоздать его.");
+            Directory.CreateDirectory(backup);
+            string destination = Path.Combine(backup, name);
+            if (Directory.Exists(source)) Directory.Move(source, destination);
+            else File.Move(source, destination);
+        }
+        string temporary = marker + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try {
+            File.WriteAllText(temporary, revision + Environment.NewLine, new UTF8Encoding(false));
+            if (File.Exists(marker)) File.Replace(temporary, marker, null);
+            else File.Move(temporary, marker);
+        } finally { if (File.Exists(temporary)) File.Delete(temporary); }
+        return true;
+    }
+
     public void EnsureReady() {
         if (!File.Exists(Path.Combine(InstallRoot, "defaults", "config.json")) ||
             !File.Exists(Path.Combine(InstallRoot, "defaults", "patches", "nhl24.xml")))

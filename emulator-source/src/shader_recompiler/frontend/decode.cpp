@@ -102,6 +102,7 @@ bool HasAdditionalLiteral(InstEncoding encoding, Opcode opcode) {
 
 bool IsVop3BEncoding(Opcode opcode) {
     return opcode == Opcode::V_ADD_I32 || opcode == Opcode::V_ADDC_U32 ||
+           opcode == Opcode::V_SUB_CO_U32 ||
            opcode == Opcode::V_SUB_I32 || opcode == Opcode::V_SUBB_U32 ||
            opcode == Opcode::V_SUBREV_I32 || opcode == Opcode::V_SUBBREV_U32 ||
            opcode == Opcode::V_DIV_SCALE_F32 || opcode == Opcode::V_DIV_SCALE_F64 ||
@@ -244,7 +245,7 @@ uint32_t GcnDecodeContext::mapEncodingOp(InstEncoding encoding, Opcode opcode) {
             uint32_t op =
                 static_cast<uint32_t>(opcode) - static_cast<uint32_t>(OpcodeMap::OP_MAP_VOP2);
             encodingOp = op + static_cast<uint32_t>(OpMapVOP3VOPX::VOP3_TO_VOP2);
-        } else if (opcode >= Opcode::V_NOP && opcode <= Opcode::V_SQRT_F16) {
+        } else if (opcode >= Opcode::V_NOP && opcode <= Opcode::V_EXP_F16) {
             uint32_t op =
                 static_cast<uint32_t>(opcode) - static_cast<uint32_t>(OpcodeMap::OP_MAP_VOP1);
             encodingOp = op + static_cast<uint32_t>(OpMapVOP3VOPX::VOP3_TO_VOP1);
@@ -750,7 +751,7 @@ void GcnDecodeContext::decodeInstructionVOP3(uint64_t hexInstruction) {
         m_instruction.opcode =
             static_cast<Opcode>(vop2Op + static_cast<u32>(OpcodeMap::OP_MAP_VOP2));
     } else if (op >= static_cast<u32>(OpcodeVOP3::V_NOP) &&
-               op <= static_cast<u32>(OpcodeVOP3::V_SQRT_F16)) {
+               op <= static_cast<u32>(OpcodeVOP3::V_EXP_F16)) {
         // Map from VOP3 to VOP1
         u32 vop1Op = op - static_cast<u32>(OpMapVOP3VOPX::VOP3_TO_VOP1);
         m_instruction.opcode =
@@ -790,8 +791,7 @@ void GcnDecodeContext::decodeInstructionVOP3(uint64_t hexInstruction) {
         }
     }
 
-    if (op >= static_cast<u32>(OpcodeVOP3::V_ADD_I32) &&
-        op <= static_cast<u32>(OpcodeVOP3::V_DIV_SCALE_F64)) {
+    if (IsVop3BEncoding(m_instruction.opcode)) {
         // VOP3B has a sdst operand.
         m_instruction.dst_count = 2;
     } else {
