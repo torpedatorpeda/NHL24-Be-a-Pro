@@ -1,3 +1,13 @@
+# Launcher localization R12, 2026-10-20
+
+`LauncherText.cs` embeds the English/Russian catalog, chooses the initial language
+from Windows and atomically persists explicit selections in `launcher-ui.json`.
+The live selector relabels controls and tooltips while retaining graphics choices,
+dirty status, dynamic error codes and lock state. Storage/import errors use the
+same catalog. UI preferences are outside `user/`, so career import cannot replace
+the language preference. The game language is unchanged. The complete bundle
+includes English instructions; its emulator core retains R11's SHA-256.
+
 # Graphics update R8, 2026-10-19
 
 R8 adds an optional edge-smoothing presentation shader and includes depth

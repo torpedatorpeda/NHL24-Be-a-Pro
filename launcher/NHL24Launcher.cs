@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+﻿// SPDX-License-Identifier: GPL-2.0-or-later
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -15,16 +15,23 @@ using System.Windows.Forms;
 
 internal sealed class NHL24Launcher : Form {
 #if EXPERIMENTAL_PRO
-    const string BuildRevision = "R9 Pro (тест)";
+    const string BuildRevision = "R9 Pro (test)";
     static readonly bool SupportsPro = true;
     const int ProExtraHeight = 48;
 #else
-    const string BuildRevision = "R11";
+    const string BuildRevision = "R12";
     static readonly bool SupportsPro = false;
     const int ProExtraHeight = 0;
 #endif
     readonly string root = AppDomain.CurrentDomain.BaseDirectory;
     readonly LauncherData storage;
+    readonly ComboBox language = new LauncherComboBox();
+    readonly Dictionary<Control, string> textSources = new Dictionary<Control, string>();
+    readonly Dictionary<Control, string> tooltipSources = new Dictionary<Control, string>();
+    readonly Dictionary<Control, string> accessibleSources = new Dictionary<Control, string>();
+    Label version;
+    string statusSource = "";
+    object[] statusArguments = new object[0];
     readonly TextBox gameFolder = new TextBox();
     readonly ComboBox mode = new LauncherComboBox();
     readonly ComboBox resolution = new LauncherComboBox();
@@ -46,18 +53,19 @@ internal sealed class NHL24Launcher : Form {
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         var data = new LauncherData(AppDomain.CurrentDomain.BaseDirectory, LauncherData.DefaultRoot);
+        LauncherText.Initialize(data.DataRoot);
         string mutexName;
         using (var sha = SHA256.Create()) mutexName = "Local\\NHL24-Be-a-Pro-" + BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(data.DataRoot.ToUpperInvariant()))).Replace("-", "");
         using (var mutex = new Mutex(false, mutexName)) {
             bool acquired = false;
             try {
                 try { acquired = mutex.WaitOne(0); } catch (AbandonedMutexException) { acquired = true; }
-                if (!acquired) throw new InvalidOperationException("Лаунчер уже открыт. Используй существующее окно.");
-                if (Process.GetProcessesByName("nhl24").Length != 0) throw new InvalidOperationException("Закрой NHL 24 перед открытием лаунчера и переносом данных.");
+                if (!acquired) throw new InvalidOperationException(LauncherText.T("Лаунчер уже открыт. Используй существующее окно."));
+                if (Process.GetProcessesByName("nhl24").Length != 0) throw new InvalidOperationException(LauncherText.T("Закрой NHL 24 перед открытием лаунчера и переносом данных."));
                 data.EnsureReady();
                 Application.Run(new NHL24Launcher(data));
             } catch (Exception ex) {
-                MessageBox.Show(ex.Message, "NHL 24 — запуск", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(ex.Message, LauncherText.T("NHL 24 — запуск"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             } finally { if (acquired) mutex.ReleaseMutex(); }
         }
     }
@@ -76,45 +84,52 @@ internal sealed class NHL24Launcher : Form {
         AddLabel("NHL 24", 28, 16, 420, 68, 38, FontStyle.Bold | FontStyle.Italic);
         var subtitle = AddLabel("Be a Pro", 34, 86, 420, 28, 13, FontStyle.Regular);
         subtitle.ForeColor = LauncherTheme.Muted;
-        var version = AddLabel("ЕДИНАЯ СБОРКА  " + BuildRevision, 655, 36, 177, 24, 9, FontStyle.Bold);
+        version = AddLabel(LauncherText.T("ЕДИНАЯ СБОРКА  ") + BuildRevision, 655, 36, 177, 24, 9, FontStyle.Bold);
         version.TextAlign = ContentAlignment.MiddleCenter;
         version.ForeColor = LauncherTheme.Accent;
+        StyleCombo(language, 654, 78, 178);
+        language.AccessibleName = "Language / Язык";
+        language.Items.AddRange(new object[] { "Русский", "English" });
+        language.SelectedIndex = LauncherText.Language == "ru" ? 0 : 1;
 
-        AddLabel("Папка игры", 48, 151, 600, 25, 10, FontStyle.Bold);
+        AddLabel(LauncherText.T("Папка игры"), 48, 151, 600, 25, 10, FontStyle.Bold);
         gameFolder.SetBounds(60, 194, 586, 25);
         gameFolder.BorderStyle = BorderStyle.None;
         gameFolder.BackColor = LauncherTheme.Field;
         gameFolder.ForeColor = LauncherTheme.Text;
         gameFolder.Font = new Font("Segoe UI", 11);
         gameFolder.Text = LoadGamePath();
-        gameFolder.AccessibleName = "Папка игры";
+        gameFolder.AccessibleName = LauncherText.T("Папка игры");
         Controls.Add(gameFolder);
-        var browse = MakeButton("Выбрать…", 678, 184, 134, 40);
+        var browse = MakeButton(LauncherText.T("Выбрать…"), 678, 184, 134, 40);
         ((LauncherButton)browse).SurfaceColor = LauncherTheme.Card;
-        browse.Click += delegate { using (var dialog = new FolderBrowserDialog()) { dialog.SelectedPath = gameFolder.Text; if (dialog.ShowDialog(this) == DialogResult.OK) gameFolder.Text = dialog.SelectedPath; } };
+        browse.Click += delegate { using (var dialog = new FolderBrowserDialog()) { dialog.Description = LauncherText.T("Выбери папку NHL 24, в которой лежит eboot.bin"); dialog.SelectedPath = gameFolder.Text; if (dialog.ShowDialog(this) == DialogResult.OK) gameFolder.Text = dialog.SelectedPath; } };
 
-        AddLabel("Изображение", 48, 277, 400, 30, 16, FontStyle.Bold);
-        var applies = AddLabel("Применится при следующем запуске", 459, 286, 353, 20, 9, FontStyle.Regular);
+        AddLabel(LauncherText.T("Изображение"), 48, 277, 400, 30, 16, FontStyle.Bold);
+        var applies = AddLabel(LauncherText.T("Применится при следующем запуске"), 459, 286, 353, 20, 9, FontStyle.Regular);
         applies.ForeColor = LauncherTheme.Muted;
         applies.TextAlign = ContentAlignment.TopRight;
-        AddLabel("Режим окна", 48, 330, 350, 23, 10, FontStyle.Regular);
+        AddLabel(LauncherText.T("Режим окна"), 48, 330, 350, 23, 10, FontStyle.Regular);
         StyleCombo(mode, 48, 356, 365);
-        mode.Items.AddRange(new object[] { "Без рамок", "Оконный" });
+        mode.AccessibleName = LauncherText.T("Режим окна");
+        mode.Items.AddRange(new object[] { LauncherText.T("Без рамок"), LauncherText.T("Оконный") });
         mode.SelectedIndex = 0;
-        AddLabel("Разрешение вывода", 455, 330, 350, 23, 10, FontStyle.Regular);
+        AddLabel(LauncherText.T("Разрешение вывода"), 455, 330, 350, 23, 10, FontStyle.Regular);
         StyleCombo(resolution, 455, 356, 357);
+        resolution.AccessibleName = LauncherText.T("Разрешение вывода");
         resolution.Items.AddRange(new object[] { "1280 × 720", "1920 × 1080", "2560 × 1440" });
         resolution.SelectedIndex = 2;
 
-        AddLabel("Апскейлер", 48, 412, 350, 24, 10, FontStyle.Regular);
+        AddLabel(LauncherText.T("Апскейлер"), 48, 412, 350, 24, 10, FontStyle.Regular);
         StyleCombo(upscaler, 48, 438, 365);
-        upscaler.Items.AddRange(new object[] { "Обычное масштабирование", "AMD FSR 1.0" });
+        upscaler.AccessibleName = LauncherText.T("Апскейлер");
+        upscaler.Items.AddRange(new object[] { LauncherText.T("Обычное масштабирование"), "AMD FSR 1.0" });
         upscaler.SelectedIndex = 1;
         upscaler.SelectedIndexChanged += delegate {
             if (settingsLoaded && upscaler.SelectedIndex != 1) sharpening.Checked = false;
             UpdateSharpeningControls(); MarkSettingsChanged();
         };
-        sharpening.Text = "Резкость FSR";
+        sharpening.Text = LauncherText.T("Резкость FSR");
         sharpening.SetBounds(455, 408, 265, 30);
         sharpening.BackColor = LauncherTheme.Card;
         sharpening.CheckedChanged += delegate {
@@ -136,35 +151,35 @@ internal sealed class NHL24Launcher : Form {
         sharpnessValue.BackColor = LauncherTheme.Card;
         sharpnessValue.TextAlign = ContentAlignment.MiddleRight;
         Controls.Add(sharpnessValue);
-        vsync.Text = "Вертикальная синхронизация";
+        vsync.Text = LauncherText.T("Вертикальная синхронизация");
         vsync.Checked = true;
         vsync.BackColor = LauncherTheme.Card;
         vsync.SetBounds(48, 506, 365, 30);
         Controls.Add(vsync);
-        edgeSmoothing.Text = "Сглаживание краёв";
+        edgeSmoothing.Text = LauncherText.T("Сглаживание краёв");
         edgeSmoothing.Checked = false;
         edgeSmoothing.BackColor = LauncherTheme.Card;
         edgeSmoothing.SetBounds(455, 506, 357, 30);
         edgeSmoothing.CheckedChanged += delegate { MarkSettingsChanged(); };
         Controls.Add(edgeSmoothing);
-        proMode.Text = "PS4 Pro — экспериментальный режим, рендер 1080p";
+        proMode.Text = LauncherText.T("PS4 Pro — экспериментальный режим, рендер 1080p");
         proMode.SetBounds(48, 548, 764, 30);
         proMode.BackColor = LauncherTheme.Card;
         proMode.CheckedChanged += delegate { MarkSettingsChanged(); };
         if (SupportsPro) Controls.Add(proMode);
-        tips.SetToolTip(proMode, "Включает PS4 Pro с экраном 1080p. Вывод 4K пока вызывает чёрную сцену; патч рендера 1440p ещё не готов. Размер окна выбирается отдельно. Для обычной PS4 сними галочку.");
-        tips.SetToolTip(edgeSmoothing, "Смягчает лесенки по краям объектов. Может немного смягчить мелкий текст. Не повышает внутреннее разрешение и не заменяет текстуры.");
-        tips.SetToolTip(upscaler, "FSR 1.0 улучшает масштабирование изображения при выводе в большем разрешении.");
-        tips.SetToolTip(sharpening, "Включает AMD FSR 1.0 и регулировку резкости RCAS. Сними галочку, чтобы отключить резкость.");
-        tips.SetToolTip(sharpness, "Чем выше значение, тем резче картинка. 0% — минимальная, 100% — максимальная резкость.");
+        tips.SetToolTip(proMode, LauncherText.T("Включает PS4 Pro с экраном 1080p. Вывод 4K пока вызывает чёрную сцену; патч рендера 1440p ещё не готов. Размер окна выбирается отдельно. Для обычной PS4 сними галочку."));
+        tips.SetToolTip(edgeSmoothing, LauncherText.T("Смягчает лесенки по краям объектов. Может немного смягчить мелкий текст. Не повышает внутреннее разрешение и не заменяет текстуры."));
+        tips.SetToolTip(upscaler, LauncherText.T("FSR 1.0 улучшает масштабирование изображения при выводе в большем разрешении."));
+        tips.SetToolTip(sharpening, LauncherText.T("Включает AMD FSR 1.0 и регулировку резкости RCAS. Сними галочку, чтобы отключить резкость."));
+        tips.SetToolTip(sharpness, LauncherText.T("Чем выше значение, тем резче картинка. 0% — минимальная, 100% — максимальная резкость."));
 
         status.SetBounds(50, 576 + ProExtraHeight, 762, 42);
         status.ForeColor = LauncherTheme.Muted;
         status.TextAlign = ContentAlignment.MiddleLeft;
-        status.Text = gameFolder.Text.Length == 0 ? "Выбери папку NHL 24, чтобы начать." : storage.StartupMessage;
+        SetStatus(gameFolder.Text.Length == 0 ? LauncherText.T("Выбери папку NHL 24, чтобы начать.") : storage.StartupMessage);
         status.TextChanged += delegate { Invalidate(new Rectangle(28, 576 + ProExtraHeight, 20, 42)); };
         Controls.Add(status);
-        play.Text = "ИГРАТЬ";
+        play.Text = LauncherText.T("ИГРАТЬ");
         play.SetBounds(326, 624 + ProExtraHeight, 506, 64);
         play.FlatStyle = FlatStyle.Flat;
         play.FlatAppearance.BorderSize = 0;
@@ -173,21 +188,21 @@ internal sealed class NHL24Launcher : Form {
         play.Font = new Font("Segoe UI", 15, FontStyle.Bold);
         play.Click += async delegate { await StartGame(); };
         Controls.Add(play);
-        save.Text = "Сохранить настройки";
+        save.Text = LauncherText.T("Сохранить настройки");
         save.SetBounds(28, 634 + ProExtraHeight, 278, 54);
         save.BackColor = LauncherTheme.Field;
         save.ForeColor = LauncherTheme.Text;
         save.FlatStyle = FlatStyle.Flat;
         save.Click += delegate {
-            try { SaveSettings(); status.Text = "Настройки сохранены. Они применятся при следующем запуске игры."; }
-            catch (Exception ex) { MessageBox.Show(this, ex.Message, "NHL 24 — настройки", MessageBoxButtons.OK, MessageBoxIcon.Information); }
+            try { SaveSettings(); SetStatus("Настройки сохранены. Они применятся при следующем запуске игры."); }
+            catch (Exception ex) { MessageBox.Show(this, ex.Message, LauncherText.T("NHL 24 — настройки"), MessageBoxButtons.OK, MessageBoxIcon.Information); }
         };
         Controls.Add(save);
-        var help = new LinkLabel { Text = "Помощь", LinkColor = LauncherTheme.Muted, ActiveLinkColor = LauncherTheme.Accent, AutoSize = true, LinkBehavior = LinkBehavior.HoverUnderline, Font = new Font("Segoe UI", 9) };
+        var help = new LinkLabel { Text = LauncherText.T("Помощь"), LinkColor = LauncherTheme.Muted, ActiveLinkColor = LauncherTheme.Accent, AutoSize = true, LinkBehavior = LinkBehavior.HoverUnderline, Font = new Font("Segoe UI", 9) };
         help.SetBounds(32, 708 + ProExtraHeight, 190, 22);
         help.LinkClicked += delegate { ShowHelp(); };
         Controls.Add(help);
-        var retention = AddLabel("Карьера останется при обновлении", 385, 706 + ProExtraHeight, 447, 24, 9, FontStyle.Regular);
+        var retention = AddLabel(LauncherText.T("Карьера останется при обновлении"), 385, 706 + ProExtraHeight, 447, 24, 9, FontStyle.Regular);
         retention.TextAlign = ContentAlignment.MiddleRight;
         retention.ForeColor = LauncherTheme.Muted;
         Log("Unified launcher " + BuildRevision + " started; storage=LocalAppData; pro=" + SupportsPro + "; image-depth=" + !SupportsPro + "; gpu-shared-memory-safety=" + !SupportsPro + "; device-fault=if-supported; depth-store=tracked; edge-smoothing=opt-in; uniform16=enable-if-supported; texel-alias=bounds-and-base-offset; mip-alias=compatible-base-view; texture-footprint=expand-compatible; readbacks=graphics-serialized; Windows=" + Environment.OSVersion.VersionString);
@@ -196,7 +211,57 @@ internal sealed class NHL24Launcher : Form {
         mode.SelectedIndexChanged += delegate { MarkSettingsChanged(); };
         resolution.SelectedIndexChanged += delegate { MarkSettingsChanged(); };
         vsync.CheckedChanged += delegate { MarkSettingsChanged(); };
+        CaptureTranslations();
+        language.SelectedIndexChanged += delegate { ChangeLanguage(); };
         ActiveControl = save;
+    }
+
+    void SetStatus(string source, params object[] args) {
+        statusSource = LauncherText.Source(source);
+        statusArguments = args;
+        status.Text = LauncherText.Format(statusSource, statusArguments);
+    }
+    void CaptureTranslations() {
+        foreach (Control control in Controls) {
+            if (control != status && control != version && !(control is TextBox) && !(control is ComboBox))
+                textSources[control] = LauncherText.Source(control.Text);
+            if (control != language && !string.IsNullOrEmpty(control.AccessibleName))
+                accessibleSources[control] = LauncherText.Source(control.AccessibleName);
+            string tooltip = tips.GetToolTip(control);
+            if (!string.IsNullOrEmpty(tooltip)) tooltipSources[control] = LauncherText.Source(tooltip);
+        }
+    }
+    void ChangeLanguage() {
+        string selected = language.SelectedIndex == 0 ? "ru" : "en";
+        if (selected == LauncherText.Language) return;
+        try {
+            LauncherText.SaveLanguage(storage.DataRoot, selected);
+            ApplyLanguage();
+            Log("Launcher language=" + selected);
+        } catch (Exception ex) {
+            language.SelectedIndex = LauncherText.Language == "ru" ? 0 : 1;
+            MessageBox.Show(this, LauncherText.T("Не удалось сохранить язык. Проверь доступ к папке данных.") + "\n\n" + ex.Message, "NHL 24", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+    }
+    void ApplyLanguage() {
+        bool wasLoaded = settingsLoaded;
+        settingsLoaded = false;
+        SuspendLayout();
+        try {
+            foreach (var item in textSources) item.Key.Text = LauncherText.T(item.Value);
+            foreach (var item in accessibleSources) item.Key.AccessibleName = LauncherText.T(item.Value);
+            foreach (var item in tooltipSources) tips.SetToolTip(item.Key, LauncherText.T(item.Value));
+            version.Text = LauncherText.T("ЕДИНАЯ СБОРКА  ") + BuildRevision;
+            int modeIndex = mode.SelectedIndex, upscalerIndex = upscaler.SelectedIndex;
+            mode.Items[0] = LauncherText.T("Без рамок");
+            mode.Items[1] = LauncherText.T("Оконный");
+            upscaler.Items[0] = LauncherText.T("Обычное масштабирование");
+            mode.SelectedIndex = modeIndex;
+            upscaler.SelectedIndex = upscalerIndex;
+            UpdateSharpnessValue();
+            status.Text = LauncherText.Format(statusSource, statusArguments);
+        } finally { settingsLoaded = wasLoaded; ResumeLayout(); }
+        Invalidate(true);
     }
 
     protected override void OnHandleCreated(EventArgs e) {
@@ -229,7 +294,7 @@ internal sealed class NHL24Launcher : Form {
         }
         using (var field = new SolidBrush(LauncherTheme.Field)) using (var shape = LauncherTheme.Round(new Rectangle(48, 186, 610, 36), 8)) g.FillPath(field, shape);
         using (var border = new Pen(Color.FromArgb(44, 83, 89))) using (var shape = LauncherTheme.Round(new Rectangle(653, 34, 179, 28), 14)) g.DrawPath(border, shape);
-        using (var dot = new SolidBrush(status.Text.StartsWith("Есть изменения", StringComparison.Ordinal) ? Color.FromArgb(236, 185, 98) : LauncherTheme.Accent)) g.FillEllipse(dot, 32, 593 + ProExtraHeight, 7, 7);
+        using (var dot = new SolidBrush(statusSource == "Есть изменения. Нажми «Сохранить» или «ИГРАТЬ»." ? Color.FromArgb(236, 185, 98) : LauncherTheme.Accent)) g.FillEllipse(dot, 32, 593 + ProExtraHeight, 7, 7);
     }
     void StyleCombo(ComboBox combo, int x, int y, int width) {
         combo.SetBounds(x, y, width, 34);
@@ -270,62 +335,62 @@ internal sealed class NHL24Launcher : Form {
             Process.Start(new ProcessStartInfo(explorer, "/e,\"" + full + "\"") { UseShellExecute = true });
         } catch (Exception ex) {
             Log("Open folder failed: " + ex);
-            MessageBox.Show(owner, "Не удалось открыть папку. Путь можно скопировать из этого окна.\n\n" + ex.Message, "Открытие папки", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(owner, LauncherText.T("Не удалось открыть папку. Путь можно скопировать из этого окна.\n\n") + ex.Message, LauncherText.T("Открытие папки"), MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
     }
     void ShowSaves(IWin32Window owner) {
-        using (var dialog = CreateDialog("Сохранения и карьера", 390)) {
-            DialogText(dialog, "Сохранения и карьера", 22, 42, true);
-            DialogText(dialog, "Карьера хранится отдельно от программы и остаётся на месте\nпри обновлении лаунчера.", 78, 48);
-            DialogText(dialog, "Папка сохранений", 143, 22);
-            var location = new TextBox { Text = storage.UserFile("home"), ReadOnly = true, BackColor = Color.FromArgb(32, 43, 60), ForeColor = Color.White, AccessibleName = "Папка сохранений" };
+        using (var dialog = CreateDialog(LauncherText.T("Сохранения и карьера"), 390)) {
+            DialogText(dialog, LauncherText.T("Сохранения и карьера"), 22, 42, true);
+            DialogText(dialog, LauncherText.T("Карьера хранится отдельно от программы и остаётся на месте\nпри обновлении лаунчера."), 78, 48);
+            DialogText(dialog, LauncherText.T("Папка сохранений"), 143, 22);
+            var location = new TextBox { Text = storage.UserFile("home"), ReadOnly = true, BackColor = Color.FromArgb(32, 43, 60), ForeColor = Color.White, AccessibleName = LauncherText.T("Папка сохранений") };
             location.SetBounds(24, 170, 572, 28); dialog.Controls.Add(location);
-            DialogButton(dialog, "Открыть сохранения", 24, 213, 278).Click += delegate { OpenFolder(dialog, storage.UserFile("home")); };
-            DialogButton(dialog, "Резервные копии", 318, 213, 278).Click += delegate { OpenFolder(dialog, Path.Combine(storage.DataRoot, "backups")); };
-            DialogText(dialog, "Импортируй прежнюю карьеру из старого лаунчера.\nПеред заменой текущих данных создадим резервную копию.", 272, 48);
-            var import = DialogButton(dialog, "Импорт из старой версии…", 24, 332, 355);
+            DialogButton(dialog, LauncherText.T("Открыть сохранения"), 24, 213, 278).Click += delegate { OpenFolder(dialog, storage.UserFile("home")); };
+            DialogButton(dialog, LauncherText.T("Резервные копии"), 318, 213, 278).Click += delegate { OpenFolder(dialog, Path.Combine(storage.DataRoot, "backups")); };
+            DialogText(dialog, LauncherText.T("Импортируй прежнюю карьеру из старого лаунчера.\nПеред заменой текущих данных создадим резервную копию."), 272, 48);
+            var import = DialogButton(dialog, LauncherText.T("Импорт из старой версии…"), 24, 332, 355);
             import.Enabled = Process.GetProcessesByName("nhl24").Length == 0;
-            if (!import.Enabled) tips.SetToolTip(import, "Закрой игру, чтобы импортировать карьеру.");
+            if (!import.Enabled) tips.SetToolTip(import, LauncherText.T("Закрой игру, чтобы импортировать карьеру."));
             import.Click += delegate { if (ImportOldData(dialog)) dialog.Close(); };
-            var close = DialogButton(dialog, "Закрыть", 440, 332, 156); close.DialogResult = DialogResult.Cancel; dialog.CancelButton = close;
+            var close = DialogButton(dialog, LauncherText.T("Закрыть"), 440, 332, 156); close.DialogResult = DialogResult.Cancel; dialog.CancelButton = close;
             dialog.ShowDialog(owner);
         }
     }
     bool ImportOldData(IWin32Window owner) {
-        using (var dialog = CreateDialog("Импорт карьеры", 396)) {
-            DialogText(dialog, "Карьера из старой версии", 22, 42, true);
-            DialogText(dialog, "Выбери папку, из которой раньше запускал NHL 24.\nСкопируем карьеру, профили и настройки. Старые файлы останутся.", 78, 52);
-            DialogText(dialog, "Папка предыдущего лаунчера", 148, 22);
-            var source = new TextBox { BackColor = Color.FromArgb(32, 43, 60), ForeColor = Color.White, AccessibleName = "Папка предыдущего лаунчера" };
+        using (var dialog = CreateDialog(LauncherText.T("Импорт карьеры"), 396)) {
+            DialogText(dialog, LauncherText.T("Карьера из старой версии"), 22, 42, true);
+            DialogText(dialog, LauncherText.T("Выбери папку, из которой раньше запускал NHL 24.\nСкопируем карьеру, профили и настройки. Старые файлы останутся."), 78, 52);
+            DialogText(dialog, LauncherText.T("Папка предыдущего лаунчера"), 148, 22);
+            var source = new TextBox { BackColor = Color.FromArgb(32, 43, 60), ForeColor = Color.White, AccessibleName = LauncherText.T("Папка предыдущего лаунчера") };
             source.SetBounds(24, 178, 414, 28); dialog.Controls.Add(source);
-            var choose = DialogButton(dialog, "Выбрать…", 454, 174, 142);
-            var feedback = DialogText(dialog, "Укажи папку, чтобы найти сохранения.", 220, 42);
+            var choose = DialogButton(dialog, LauncherText.T("Выбрать…"), 454, 174, 142);
+            var feedback = DialogText(dialog, LauncherText.T("Укажи папку, чтобы найти сохранения."), 220, 42);
             bool replace = LauncherData.HasSaves(storage.UserRoot);
-            DialogText(dialog, replace ? "Текущая карьера будет заменена импортированной. Перед заменой\nавтоматически сохраним её резервную копию." : "Импортированная карьера появится при следующем запуске игры.", 275, 48);
-            var confirm = DialogButton(dialog, replace ? "Импортировать и заменить" : "Импортировать", 24, 338, 355); confirm.Enabled = false;
-            var cancel = DialogButton(dialog, "Отмена", 440, 338, 156); cancel.DialogResult = DialogResult.Cancel; dialog.CancelButton = cancel;
+            DialogText(dialog, replace ? LauncherText.T("Текущая карьера будет заменена импортированной. Перед заменой\nавтоматически сохраним её резервную копию.") : LauncherText.T("Импортированная карьера появится при следующем запуске игры."), 275, 48);
+            var confirm = DialogButton(dialog, replace ? LauncherText.T("Импортировать и заменить") : LauncherText.T("Импортировать"), 24, 338, 355); confirm.Enabled = false;
+            var cancel = DialogButton(dialog, LauncherText.T("Отмена"), 440, 338, 156); cancel.DialogResult = DialogResult.Cancel; dialog.CancelButton = cancel;
             source.TextChanged += delegate {
                 confirm.Enabled = false;
-                if (string.IsNullOrWhiteSpace(source.Text)) { feedback.Text = "Укажи папку, чтобы найти сохранения."; return; }
-                try { LauncherData.ResolveLegacy(source.Text.Trim().Trim('"')); feedback.Text = "Найден профиль предыдущей версии. Готово к импорту."; confirm.Enabled = true; }
-                catch { feedback.Text = "В этой папке не найдены данные предыдущей версии.\nВыбери папку старого лаунчера или её папку user."; }
+                if (string.IsNullOrWhiteSpace(source.Text)) { feedback.Text = LauncherText.T("Укажи папку, чтобы найти сохранения."); return; }
+                try { LauncherData.ResolveLegacy(source.Text.Trim().Trim('"')); feedback.Text = LauncherText.T("Найден профиль предыдущей версии. Готово к импорту."); confirm.Enabled = true; }
+                catch { feedback.Text = LauncherText.T("В этой папке не найдены данные предыдущей версии.\nВыбери папку старого лаунчера или её папку user."); }
             };
-            choose.Click += delegate { using (var picker = new FolderBrowserDialog { Description = "Выбери папку предыдущего лаунчера NHL 24", ShowNewFolderButton = false }) { if (picker.ShowDialog(dialog) == DialogResult.OK) source.Text = picker.SelectedPath; } };
+            choose.Click += delegate { using (var picker = new FolderBrowserDialog { Description = LauncherText.T("Выбери папку предыдущего лаунчера NHL 24"), ShowNewFolderButton = false }) { if (picker.ShowDialog(dialog) == DialogResult.OK) source.Text = picker.SelectedPath; } };
             bool copying = false;
             dialog.FormClosing += delegate(object sender, FormClosingEventArgs e) { if (copying) e.Cancel = true; };
             confirm.Click += async delegate {
                 try {
-                    if (Process.GetProcessesByName("nhl24").Length != 0) throw new InvalidOperationException("Закрой игру перед импортом карьеры.");
+                    if (Process.GetProcessesByName("nhl24").Length != 0) throw new InvalidOperationException(LauncherText.T("Закрой игру перед импортом карьеры."));
                     string selected = source.Text.Trim().Trim('"');
                     source.Enabled = choose.Enabled = confirm.Enabled = cancel.Enabled = false; dialog.ControlBox = false; dialog.UseWaitCursor = true; copying = true;
-                    feedback.Text = "Копируем и проверяем сохранения…";
+                    feedback.Text = LauncherText.T("Копируем и проверяем сохранения…");
                     await Task.Run(delegate { storage.ImportLegacy(selected, replace); });
                     settingsLoaded = false; gameFolder.Text = LoadGamePath(); LoadSettings(); settingsLoaded = true;
-                    status.Text = "Карьера импортирована. Можно запускать игру.";
+                    SetStatus("Карьера импортирована. Можно запускать игру.");
                     Log("Legacy profile imported with verified copies; source retained");
                     copying = false; dialog.DialogResult = DialogResult.OK; dialog.Close();
                 } catch (Exception ex) {
-                    copying = false; settingsLoaded = true; feedback.Text = "Импорт не завершён. " + ex.Message;
+                    copying = false; settingsLoaded = true; feedback.Text = LauncherText.T("Импорт не завершён. ") + ex.Message;
                     Log("Legacy import failed: " + ex);
                     source.Enabled = choose.Enabled = confirm.Enabled = cancel.Enabled = true; dialog.ControlBox = true;
                 } finally { if (!dialog.IsDisposed) dialog.UseWaitCursor = false; }
@@ -334,18 +399,18 @@ internal sealed class NHL24Launcher : Form {
         }
     }
     void ShowHelp() {
-        using (var dialog = CreateDialog("Помощь", 426)) {
-            DialogText(dialog, "Помощь", 22, 42, true);
-            DialogText(dialog, "Сохранения, перенос карьеры и журналы запуска.\nНичего не отправляется автоматически.", 78, 52);
-            DialogButton(dialog, "Сохранения и карьера", 24, 151, 572).Click += delegate { ShowSaves(dialog); };
-            DialogButton(dialog, "Открыть журнал запуска", 24, 207, 278).Click += delegate {
+        using (var dialog = CreateDialog(LauncherText.T("Помощь"), 426)) {
+            DialogText(dialog, LauncherText.T("Помощь"), 22, 42, true);
+            DialogText(dialog, LauncherText.T("Сохранения, перенос карьеры и журналы запуска.\nНичего не отправляется автоматически."), 78, 52);
+            DialogButton(dialog, LauncherText.T("Сохранения и карьера"), 24, 151, 572).Click += delegate { ShowSaves(dialog); };
+            DialogButton(dialog, LauncherText.T("Открыть журнал запуска"), 24, 207, 278).Click += delegate {
                 try { Process.Start(new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "notepad.exe"), "\"" + storage.LogFile + "\"") { UseShellExecute = true }); }
-                catch (Exception ex) { MessageBox.Show(dialog, ex.Message, "Журнал запуска"); }
+                catch (Exception ex) { MessageBox.Show(dialog, ex.Message, LauncherText.T("Журнал запуска")); }
             };
-            DialogButton(dialog, "Все файлы и журналы", 318, 207, 278).Click += delegate { OpenFolder(dialog, storage.DataRoot); };
-            DialogButton(dialog, "Отчёты о сбоях", 24, 263, 572).Click += delegate { OpenFolder(dialog, Path.Combine(storage.DataRoot, "gpu-crashes")); };
-            DialogText(dialog, "FSR и резкость работают при увеличении изображения.\nСовместимость кат-сцен включена; в отдельных сценах FPS ниже.", 318, 48);
-            var close = DialogButton(dialog, "Закрыть", 440, 376, 156); close.DialogResult = DialogResult.Cancel; dialog.CancelButton = close;
+            DialogButton(dialog, LauncherText.T("Все файлы и журналы"), 318, 207, 278).Click += delegate { OpenFolder(dialog, storage.DataRoot); };
+            DialogButton(dialog, LauncherText.T("Отчёты о сбоях"), 24, 263, 572).Click += delegate { OpenFolder(dialog, Path.Combine(storage.DataRoot, "gpu-crashes")); };
+            DialogText(dialog, LauncherText.T("FSR и резкость работают при увеличении изображения.\nСовместимость кат-сцен включена; в отдельных сценах FPS ниже."), 318, 48);
+            var close = DialogButton(dialog, LauncherText.T("Закрыть"), 440, 376, 156); close.DialogResult = DialogResult.Cancel; dialog.CancelButton = close;
             dialog.ShowDialog(this);
         }
     }
@@ -400,11 +465,11 @@ internal sealed class NHL24Launcher : Form {
     }
     static int Clamp(int value, int min, int max) { return Math.Max(min, Math.Min(max, value)); }
     void MarkSettingsChanged() {
-        if (settingsLoaded) status.Text = "Есть изменения. Нажми «Сохранить» или «ИГРАТЬ».";
+        if (settingsLoaded) SetStatus("Есть изменения. Нажми «Сохранить» или «ИГРАТЬ».");
     }
     void UpdateSharpnessValue() {
         bool active = upscaler.SelectedIndex == 1 && sharpening.Checked;
-        sharpnessValue.Text = active ? (sharpness.Value / 30.0).ToString("0") + "%" : "Выкл.";
+        sharpnessValue.Text = active ? (sharpness.Value / 30.0).ToString("0") + "%" : LauncherText.T("Выкл.");
         sharpnessValue.ForeColor = active ? Color.FromArgb(40, 196, 204) : Color.FromArgb(163, 191, 214);
     }
     void UpdateSharpeningControls() {
@@ -433,7 +498,7 @@ internal sealed class NHL24Launcher : Form {
             var displaySettings = ReadLauncherSettings();
             edgeSmoothing.Checked = displaySettings.TryGetValue("edge_smoothing", out value) && Convert.ToBoolean(value);
         } catch (Exception ex) {
-            status.Text = "Не удалось прочитать настройки. Открой папку данных для проверки.";
+            SetStatus("Не удалось прочитать настройки. Открой папку данных для проверки.");
             tips.SetToolTip(status, ex.Message);
         } finally { settingsLoaded = wasLoaded; }
         UpdateSharpeningControls();
@@ -475,19 +540,19 @@ internal sealed class NHL24Launcher : Form {
     }
     async Task StartGame() {
         try {
-            if (!Environment.Is64BitOperatingSystem) throw new InvalidOperationException("Эта сборка требует 64-разрядную Windows.");
+            if (!Environment.Is64BitOperatingSystem) throw new InvalidOperationException(LauncherText.T("Эта сборка требует 64-разрядную Windows."));
             string exe = Path.Combine(storage.RuntimeRoot, "nhl24.exe");
             var missing = new List<string>();
             foreach (string file in new[] { "nhl24.exe", "nhl_shader_fix.dll", "nhl_memory_fix.dll", "nhl_device_fix.dll", "nhl_pro_fix.dll", "msvcp140.dll", "msvcp140_atomic_wait.dll", "vcruntime140.dll", "vcruntime140_1.dll" })
                 if ((SupportsPro ? file != "nhl_device_fix.dll" : file != "nhl_pro_fix.dll") && !File.Exists(Path.Combine(storage.RuntimeRoot, file))) missing.Add(file);
             foreach (string file in new[] { "config.json", "patches\\nhl24.xml" })
-                if (!File.Exists(storage.UserFile(file))) missing.Add("данные: " + file);
-            if (missing.Count != 0) throw new InvalidOperationException("В комплекте не хватает: " + string.Join(", ", missing) + ".\nРаспакуй весь ZIP в отдельную папку и запускай оттуда.");
+                if (!File.Exists(storage.UserFile(file))) missing.Add(LauncherText.T("данные: ") + file);
+            if (missing.Count != 0) throw new InvalidOperationException(LauncherText.T("В комплекте не хватает: ") + string.Join(", ", missing) + LauncherText.T(".\nРаспакуй весь ZIP в отдельную папку и запускай оттуда."));
             string selected = gameFolder.Text.Trim().Trim('"');
-            if (selected.Length == 0) throw new InvalidOperationException("Нажми «Выбрать…» и укажи свою папку NHL 24, где лежит eboot.bin.");
+            if (selected.Length == 0) throw new InvalidOperationException(LauncherText.T("Нажми «Выбрать…» и укажи свою папку NHL 24, где лежит eboot.bin."));
             string path = Path.GetFullPath(Path.Combine(selected, "eboot.bin"));
             Log("Start requested; game=" + path);
-            if (!File.Exists(path)) throw new InvalidOperationException("В выбранной папке нет eboot.bin. Укажи папку установленной игры на этом компьютере.");
+            if (!File.Exists(path)) throw new InvalidOperationException(LauncherText.T("В выбранной папке нет eboot.bin. Укажи папку установленной игры на этом компьютере."));
             var expectedHashes = new Dictionary<string, string> {
                 { "nhl24.exe", "7da683cce9a6fbe4c7a56b9a6b762d80c6561f455e6b6fd4d60274afa3155d14" },
                 { "nhl_shader_fix.dll", "c2430fc437618b23a5b47aca53610440ae9b03160f3fd7f55289de3f549a01ba" },
@@ -503,15 +568,15 @@ internal sealed class NHL24Launcher : Form {
             foreach (var expected in expectedHashes) {
                 using (var sha = SHA256.Create()) using (var input = File.OpenRead(Path.Combine(storage.RuntimeRoot, expected.Key))) {
                     string hash = BitConverter.ToString(sha.ComputeHash(input)).Replace("-", "").ToLowerInvariant();
-                    if (hash != expected.Value) throw new InvalidOperationException("Файл " + expected.Key + " отличается от подготовленной сборки. Распакуй полный архив " + BuildRevision + " целиком.");
+                    if (hash != expected.Value) throw new InvalidOperationException(LauncherText.T("Файл ") + expected.Key + LauncherText.T(" отличается от подготовленной сборки. Распакуй полный архив ") + BuildRevision + LauncherText.T(" целиком."));
                 }
             }
-            if (Process.GetProcessesByName("nhl24").Length != 0) throw new InvalidOperationException("NHL 24 уже запущена. Закрой игру перед повторным запуском.");
+            if (Process.GetProcessesByName("nhl24").Length != 0) throw new InvalidOperationException(LauncherText.T("NHL 24 уже запущена. Закрой игру перед повторным запуском."));
             if (!SupportsPro && storage.EnsureShaderCacheRevision("image-depth-v1")) Log("Shader cache revision changed; previous NHL 24 cache retained in backups; career unchanged.");
             SaveSettings(true);
             File.WriteAllText(storage.UserFile("game_path.txt"), path + Environment.NewLine);
             SetSettingsEnabled(false);
-            status.Text = "Игра запускается… При первом запуске возможна компиляция шейдеров.";
+            SetStatus("Игра запускается… При первом запуске возможна компиляция шейдеров.");
             var start = new ProcessStartInfo(exe) { WorkingDirectory = storage.DataRoot, UseShellExecute = false };
             if (File.Exists(Path.Combine(root, "diagnostics.enabled"))) start.EnvironmentVariables["NHL_SHADER_DIAGNOSTICS"] = "1";
             start.EnvironmentVariables["NHLPORT_READBACK_DRAIN"] = "1";
@@ -527,21 +592,22 @@ internal sealed class NHL24Launcher : Form {
             Log("Game process exited; code=" + code + " (" + hex + ")");
             LogGameTail(launchUtc);
             WindowState = FormWindowState.Normal;
-            status.Text = code == 0 ? "Игра закрыта. Можно запустить снова." : "Игра завершилась: " + hex + ". Подробности — в журнале запуска.";
-            if (unchecked((uint)code) == 0xcfffffff) status.Text = "Игра перестала отвечать (0xCFFFFFFF). Открой журнал запуска.";
+            if (code == 0) SetStatus("Игра закрыта. Можно запустить снова.");
+            else SetStatus("Игра завершилась: {0}. Подробности — в журнале запуска.", hex);
+            if (unchecked((uint)code) == 0xcfffffff) SetStatus("Игра перестала отвечать (0xCFFFFFFF). Открой журнал запуска.");
             if (code != 0) {
                 string reports = Path.Combine(storage.DataRoot, "gpu-crashes");
                 if (Directory.Exists(reports)) foreach (string report in Directory.GetFiles(reports, "*.txt")) {
                     if (File.GetLastWriteTimeUtc(report) < launchUtc) continue;
                     Log("GPU fault report saved: " + report);
-                    status.Text = "Игра завершилась: " + hex + ". Отчёт сохранён: «Помощь» → «Отчёты о сбоях».";
+                    SetStatus("Игра завершилась: {0}. Отчёт сохранён: «Помощь» → «Отчёты о сбоях».", hex);
                     break;
                 }
             }
         } catch (Exception ex) {
             Log("Start failed: " + ex);
-            status.Text = "Запуск не выполнен. Причина записана в launcher.log.";
-            MessageBox.Show(this, ex.Message, "NHL 24 — запуск", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            SetStatus("Запуск не выполнен. Причина записана в launcher.log.");
+            MessageBox.Show(this, ex.Message, LauncherText.T("NHL 24 — запуск"), MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         finally { SetSettingsEnabled(true); }
     }

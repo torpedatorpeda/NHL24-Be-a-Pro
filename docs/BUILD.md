@@ -1,4 +1,4 @@
-# Build the complete R11 bundle
+# Build the complete R12 bundle
 
 The supported build adapts one pinned original NHL24 PC 0.8.3 Windows x64
 executable. It creates a complete program bundle, including clean defaults;
@@ -27,14 +27,14 @@ hashes for the resulting binaries. Another output path/compiler may change
 helper DLL bytes and debug metadata; launcher hashes are regenerated.
 
 The output contains the root `NHL24Launcher.exe`, a `runtime/` directory,
-clean `defaults/` and `NHL24-Be-a-Pro-Full-R11.zip`. The ZIP includes licenses,
+clean `defaults/` and `NHL24-Be-a-Pro-Full-R12.zip`. The ZIP includes licenses,
 instructions, `release.json` and per-file `SHA256SUMS.txt`.
 `package_full.py` uses an explicit asset allowlist and never walks a user
 directory. Build sources/manifests are not copied into the program ZIP.
 To package an already built set:
 
 ```powershell
-python launcher/package_full.py --build 'X:\new-build' --output 'X:\NHL24-Be-a-Pro-Full-R11.zip'
+python launcher/package_full.py --build 'X:\new-build' --output 'X:\NHL24-Be-a-Pro-Full-R12.zip'
 ```
 
 No installed launcher is required by the recipient. Extract the full ZIP
@@ -81,3 +81,7 @@ The paused Pro candidate is excluded by default. Only an explicit
 `-ExperimentalPro` builds its research runtime and UI; it is not a stable release.
 That separate research branch does not include R10/R11 and must not be used
 as an ordinary update. The standard R11 archive never includes its Pro DLL.
+
+R12 retains the R11 core and adds `LauncherText.cs`, an embedded English/Russian
+translation catalog. Language preference lives in `launcher-ui.json` outside
+the imported game profile. The full ZIP includes `README.en.txt`.

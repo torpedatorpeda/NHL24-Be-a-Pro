@@ -55,13 +55,13 @@ $nhlGeneratedSource = Join-Path $nhlBuildOutput 'NHL24Launcher.build.cs'
 [System.IO.File]::WriteAllText($nhlGeneratedSource, $nhlLauncherSource, [System.Text.UTF8Encoding]::new($false))
 $nhlCSharp = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 $nhlBuildDefine = if ($ExperimentalPro) { '/define:EXPERIMENTAL_PRO' } else { '/define:STANDARD_BUILD' }
-& $nhlCSharp /nologo /target:winexe /optimize+ $nhlBuildDefine "/out:$(Join-Path $nhlBuildOutput 'NHL24Launcher.exe')" /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Web.Extensions.dll $nhlGeneratedSource (Join-Path $PSScriptRoot 'LauncherData.cs')
+& $nhlCSharp /nologo /target:winexe /optimize+ $nhlBuildDefine "/out:$(Join-Path $nhlBuildOutput 'NHL24Launcher.exe')" /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Web.Extensions.dll $nhlGeneratedSource (Join-Path $PSScriptRoot 'LauncherData.cs') (Join-Path $PSScriptRoot 'LauncherText.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Launcher compilation failed' }
 foreach ($nhlRuntimeName in @('msvcp140.dll', 'msvcp140_atomic_wait.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')) {
     Copy-Item -LiteralPath (Join-Path (Split-Path -Parent $BaseEmulator) $nhlRuntimeName) -Destination $nhlRuntimeOutput
 }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'defaults') -Destination $nhlBuildOutput -Recurse
-$nhlPackageRevision = if ($ExperimentalPro) { 'R9-Pro-TEST' } else { 'R11' }
+$nhlPackageRevision = if ($ExperimentalPro) { 'R9-Pro-TEST' } else { 'R12' }
 $nhlPackageArguments = @((Join-Path $PSScriptRoot 'package_full.py'), '--build', $nhlBuildOutput, '--output', (Join-Path $nhlBuildOutput "NHL24-Be-a-Pro-Full-$nhlPackageRevision.zip"))
 if ($ExperimentalPro) { $nhlPackageArguments += '--experimental-pro' }
 & $Python @nhlPackageArguments

@@ -132,7 +132,7 @@ def package(build: Path, output: Path, experimental_pro=False) -> dict:
     for license_file in sorted((repo / "emulator-source" / "LICENSES").glob("*")):
         if license_file.is_file():
             payload["LICENSES/" + license_file.name] = license_file.read_bytes()
-    revision = "R9-Pro-TEST" if experimental_pro else "R11"
+    revision = "R9-Pro-TEST" if experimental_pro else "R12"
     readme = README.replace("полная сборка R9", "полная сборка " + revision)
     if not experimental_pro:
         start = readme.index("R9 добавляет экспериментальный режим")
@@ -161,11 +161,16 @@ R11 исправляет две подтверждённые гонки обще
 Длительная диагностическая проверка матча для этого не требуется.
 
 """ + readme[end:]
+    if not experimental_pro:
+        readme = "English: read README.en.txt. Select English in the launcher’s top-right language menu.\n\n" + readme
+        readme += "\nR12: переключатель Русский / English в правом верхнем углу.\nЯзык меняется сразу и запоминается отдельно от настроек игры.\n"
+        payload["README.en.txt"] = (repo / "launcher" / "README.en.txt").read_bytes()
     payload["README.txt"] = readme.encode("utf-8-sig")
     payload["THIRD-PARTY-NOTICES.txt"] = NOTICE.replace("Be a Pro R9", "Be a Pro " + revision).encode("utf-8")
     file_hashes = {name: hashlib.sha256(data).hexdigest() for name, data in sorted(payload.items())}
     metadata = {
         "version": revision, "kind": "full", "storage_version": 4,
+        "launcher_languages": ["ru", "en"],
         "data_directory": "%LOCALAPPDATA%\\NHL24-Be-a-Pro",
         "core_revision": "R9-pro-shaders" if experimental_pro else "R11-gpu-shared-memory-safety-and-device-fault",
         "memory_revision": "R8-depth-store-and-edge-aa", "game_files_included": False,
@@ -180,7 +185,7 @@ R11 исправляет две подтверждённые гонки обще
     try:
         with zipfile.ZipFile(temporary, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
             for name, data in sorted(payload.items()):
-                entry = zipfile.ZipInfo("NHL24-Be-a-Pro/" + name, date_time=(2026, 10, 19, 0, 0, 0))
+                entry = zipfile.ZipInfo("NHL24-Be-a-Pro/" + name, date_time=(2026, 10, 20, 0, 0, 0))
                 entry.compress_type = zipfile.ZIP_DEFLATED
                 entry.external_attr = 0o100644 << 16
                 archive.writestr(entry, data)

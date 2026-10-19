@@ -1,168 +1,130 @@
-# NHL24 Be a Pro — полная сборка R11
+# NHL24 Be a Pro — complete R12 build
 
-Русский лаунчер с эмулятором NHL24 PC 0.8.3 / shadPS4 и исправлениями
-совместимости. Одна общая версия для всех компьютеров.
+**English** · [Русский](README.ru.md)
 
-## Установка и первый запуск
+An English/Russian Windows launcher with NHL24 PC 0.8.3 / shadPS4 and
+compatibility fixes for NHL 24 Be a Pro. One shared build for all users.
 
-[**Скачать NHL24-Be-a-Pro-Full-R11.zip**](https://github.com/torpedatorpeda/NHL24-Be-a-Pro/raw/refs/heads/main/releases/NHL24-Be-a-Pro-Full-R11.zip)
+[**Download NHL24-Be-a-Pro-Full-R12.zip**](https://github.com/torpedatorpeda/NHL24-Be-a-Pro/raw/refs/heads/main/releases/NHL24-Be-a-Pro-Full-R12.zip)
 
-[Что изменилось в R11](docs/RELEASE-R11.md) · [Контрольная сумма архива](releases/NHL24-Be-a-Pro-Full-R11.zip.sha256)
+[R12 release notes](docs/RELEASE-R12.md) · [SHA-256 checksum](releases/NHL24-Be-a-Pro-Full-R12.zip.sha256)
 
-Это полный комплект программы: лаунчер, эмулятор, модули исправлений,
-необходимые библиотеки и начальные настройки. Старый лаунчер не требуется.
-Файлы игры, сохранения, прошивка, ключи и модули консоли в архив не входят.
+This is a complete program bundle: launcher, emulator, required libraries and
+clean defaults. No older launcher is needed. Game files, saves, firmware, keys
+and dumped console modules are not included.
 
-1. **Установи свою копию NHL 24 удобным тебе способом.** Игра устанавливается
-   отдельно: этот лаунчер её не скачивает и не устанавливает. Нужна версия
-   для PS4 в формате, поддерживаемом эмулятором — распакованная папка игры
-   с файлом `eboot.bin`.
-2. **Скачай полный архив** по ссылке выше и распакуй папку `NHL24-Be-a-Pro`
-   в удобное место, например на диск D. Не запускай программу прямо из ZIP.
-3. **Открой `NHL24Launcher.exe`.** В блоке «Папка игры» нажми «Выбрать…»
-   и укажи папку уже установленной NHL 24, внутри которой лежит `eboot.bin`.
-   Например, если файл находится в `D:\Games\NHL24\eboot.bin`, выбери
-   `D:\Games\NHL24`. Выбирать сам файл, ZIP или PKG не нужно.
-4. При желании выбери режим окна, разрешение вывода, FSR и резкость.
-   **Нажми «ИГРАТЬ»** — настройки и путь к игре сохранятся автоматически.
+## Install and play
 
-Сборка проверяется с NHL 24 для PS4, `CUSA37933`, версия игры `01.00`.
-Совместимость других обновлений игры отдельно не подтверждена.
+1. **Install your own copy of NHL 24 for PS4 using your preferred method.**
+   The launcher does not download or install the game. You need an extracted
+   game folder containing `eboot.bin` in a format the emulator supports.
+2. **Download the full ZIP above** and extract the entire `NHL24-Be-a-Pro`
+   folder wherever you prefer. Do not run the launcher directly inside the ZIP.
+3. **Open `NHL24Launcher.exe`.** Choose **English** or **Русский** in the
+   top-right language menu. It applies immediately and remembers your choice.
+4. Under **Game folder**, click **Browse…** and select your installed NHL 24
+   folder containing `eboot.bin`. For `D:\Games\NHL24\eboot.bin`, select
+   `D:\Games\NHL24`. Select the folder rather than the file, ZIP or PKG.
+5. Choose your graphics settings and click **PLAY**. The game path and settings
+   are saved automatically.
 
-При следующем запуске выбирать папку заново не потребуется. Если переместишь
-игру в другое место, укажи её новую папку через «Выбрать…».
+Requirements: 64-bit Windows, a GPU compatible with the emulator and its Vulkan
+driver. Testing uses PS4 title **CUSA37933**, game version **01.00**; other game
+updates have not been separately verified. First launch may take time while
+shaders compile.
 
-Нужны Windows x64, совместимая с эмулятором видеокарта и её Vulkan-драйвер.
-Первый запуск может занять время на компиляцию шейдеров.
-В GitHub скачивай ZIP по ссылке выше: кнопка **Code → Download ZIP** скачивает
-исходники проекта.
+Use the full download link above. GitHub's **Code → Download ZIP** downloads
+the source code rather than the ready-to-run program.
 
-## Где теперь сохранения
+## Language
 
-Все данные хранятся отдельно от программы:
+The launcher supports English and Russian, including Help, saves, career import,
+tooltips and error messages. First launch uses Russian on Russian Windows and
+English otherwise. The selected language is saved in `launcher-ui.json` in the
+data directory, separately from graphics settings and imported careers.
+It changes the launcher UI; it does not change the game's own language.
+
+## Saves and updates
+
+Your data is stored separately from the program:
 
 ```text
 %LOCALAPPDATA%\NHL24-Be-a-Pro
-├── user\home          — сохранения и карьера
-├── user\users.json    — профили пользователей
-├── user\config.json   — настройки эмулятора и графики
-├── user\input_config  — управление
-├── user\log           — журнал эмулятора
-├── launcher.log       — журнал запуска
-├── gpu-crashes        — отчёты при потере устройства GPU
-└── backups            — резервные копии перед заменой профиля
+├── user\home          — saves and career
+├── user\users.json    — player profiles
+├── user\config.json   — emulator and graphics settings
+├── user\input_config  — controls
+├── user\log           — emulator logs
+├── launcher-ui.json   — launcher language
+├── launcher.log       — launch log
+├── gpu-crashes        — GPU fault reports
+└── backups            — backups before profile replacement
 ```
 
-В разделе «Помощь» доступны «Сохранения и карьера», резервные копии,
-настройки и журналы. Папку AppData нельзя удалять вместе
-со старым лаунчером: в ней находится действующая карьера.
+For an update, extract the new full archive into a separate folder and open its
+launcher. It automatically reuses the same AppData career and settings.
+**Do not delete the AppData folder** when removing an older program folder.
+Run only one copy of the game at a time.
 
-Для будущего обновления распакуй новый полный архив в отдельную папку.
-Лаунчер подхватит ту же карьеру и настройки из AppData автоматически.
-Запускай только одну копию игры одновременно.
+To import a career from an older portable launcher, open
+**Help → Saves and career → Import from an older version…**. Select the old
+launcher folder or its `user` subfolder. Copied files are verified; originals
+are retained. If a career already exists in AppData, **Import and replace**
+creates a backup before replacing it. Profiles are not merged. Old shader
+caches and logs are excluded from import.
 
-## Перенос со старой версии
+## Graphics settings
 
-Открой **«Помощь» → «Сохранения и карьера» → «Импорт из старой версии…»** и выбери прежнюю папку
-лаунчера или её папку `user`. Лаунчер проверит выбранную папку и объяснит,
-какие данные будут заменены, до подтверждения импорта.
-Переносятся карьера, профили пользователей, управление,
-настройки и путь к игре. Копии проверяются по SHA-256; исходная папка остаётся
-на месте. Кэш и журналы создаются заново.
+| Setting | Effect |
+| --- | --- |
+| Window mode | Borderless or windowed display. |
+| Output resolution | Size of the displayed image, up to 2560 × 1440. This does not raise internal rendering resolution. |
+| AMD FSR 1.0 | Upscales the source image when output is larger. This is not FSR 2/3 or DLSS. |
+| FSR sharpening | Enables FSR 1.0 and the RCAS sharpness slider. Higher values sharpen more; uncheck to disable sharpening. |
+| Edge smoothing | Optional smoothing of jagged edges. Small text may also become softer. Off by default. |
+| Vertical sync | Synchronizes presentation to the display. |
 
-Если в AppData уже есть сохранения, подтверждение называется «Импортировать
-и заменить». Перед заменой лаунчер создаст резервную копию в `backups`.
-Профили не смешиваются.
-Если старая `user` уже находится рядом с новым лаунчером, первый перенос
-выполняется автоматически при отсутствии существующей карьеры в AppData.
-При последующих запусках старая папка не заменяет действующие данные.
+Settings apply the next time you launch the game. FSR/sharpening do not replace
+textures. Experimental PS4 Pro and internal 1440p rendering are excluded from
+the R12 bundle.
 
-## Изменения
+## Compatibility fixes and limitations
 
-- **R11:** исправлены две подтверждённые ошибки общей памяти GPU: одновременная
-  запись нескольких потоков в scratch-данные wave64 и отсутствие ожидания между
-  чтением и условной перезаписью данных. Добавлены автоматические локальные
-  отчёты при `DeviceLost` и кнопка **«Помощь» → «Отчёты о сбоях»**.
-  Подробности драйвера сохраняются, если он поддерживает соответствующую диагностику.
-- **R10:** разделены обычное чтение текстуры и сравнение глубины в описателях
-  шейдеров. При первом запуске старый кэш NHL 24 переносится в резервную копию
-  и создаётся заново. Это может вызвать задержки при компиляции шейдеров;
-  карьера и настройки сохраняются.
-- **R8:** исправлена ошибка синхронизации записи буфера глубины, связанная
-  с графическими артефактами. Добавлено необязательное «Сглаживание краёв».
-  Оно выключено по умолчанию: сглаживается и мелкий текст.
-  Устранение всех чёрных прямоугольников пока не подтверждено.
-- **R7:** при создании устройства включается поддерживаемая возможность
-  `uniformAndStorageBuffer16BitAccess`, которую используют создаваемые шейдеры.
-  Исправляет найденное несоответствие настроек Vulkan и шейдеров.
-  Устранение вылета сцены с тренером на RTX 5060 пока не подтверждено.
-- **R6:** исправлено чтение буфером данных внутри изображения: проверяются
-  реальные границы, сохраняется смещение и подготавливается вся область копирования.
-  В Be a Pro на RTX 4060 Ti проверены запуск полного матча и возврат
-  с результатов в меню карьеры. Исправление R5 входит в эту же сборку.
-- **R5:** обработан конфликт существующего изображения с 11 уровнями
-  детализации и нового одноуровневого представления после матча.
-  Совместимое представление использует исходное изображение и сохраняет его уровни.
-- **R4:** полный архив и хранение данных в LocalAppData, перенос старого
-  профиля с проверкой файлов и резервной копией перед заменой существующих данных.
-  Обновлён интерфейс: тёмные карточки, хоккейная графика и крупная кнопка запуска.
-  Галочка «Резкость FSR» включает AMD FSR 1.0 и разблокирует бегунок;
-  выбор обычного масштабирования отключает резкость, сохраняя её значение.
-  Нативное графическое ядро R3 не изменено.
-- **R3:** обработка увеличившейся области памяти совместимого изображения
-  для вылета `Unresolvable image overlap with equal memory address`.
-  Используется существующее пересоздание изображения с переносом содержимого.
-- **R2:** последовательное копирование графических данных с ожиданием
-  завершения. В отдельных сценах возможно снижение FPS.
-- Сохранены исправления таблиц переходов в шейдерах и распределения памяти.
-- Настройки окна, разрешения вывода, VSync, FSR 1.0 и резкости RCAS.
+- **R12:** English/Russian switching, translated dialogs and messages, and
+  English installation documentation. The R11 emulator is retained.
+- **R11:** two confirmed GPU shared-memory races repaired; automatic local
+  DeviceLost reports. [Technical details](docs/R11-DEVICE-SAFETY.md).
+- **R10:** separate ordinary texture reads and depth comparisons in shader
+  descriptors. The old NHL 24 shader cache is backed up once and regenerated;
+  this may cause initial compilation stutters. Saves/settings are retained.
+- **R8:** depth-store synchronization fix and optional edge smoothing.
+  Removal of every black rectangle is not established.
+- Earlier fixes cover shader jump tables, memory allocation, readback ordering,
+  texture overlap and buffer/image alias handling.
 
-FSR и RCAS не повышают внутреннее разрешение игры и не заменяют текстуры.
-Разрешение вывода 2560 × 1440 задаёт размер готового изображения.
-Патч внутреннего рендера 1440p и режим PS4 Pro остаются экспериментами
-и в полный архив R11 не включены.
+The R11 fixes pass targeted GPU and adapter checks. A full Be a Pro match was
+previously confirmed on R6 on one RTX 4060 Ti system. **This does not establish
+that all post-match or other DeviceLost crashes are fixed in R11/R12.**
+See [validation details](docs/VALIDATION.md) and the
+[DeviceLost investigation](docs/DEVICE-LOST.md).
 
-## Проверка и ограничения
+If a crash happens during normal play, open **Help → Crash reports** and include
+the new report files, `launcher.log`, `user/log/shad_log.txt`, your GPU model
+and the last visible game event. Driver details depend on supported diagnostic
+features. No separate long-match reproduction is needed to collect reports.
+Check logs for personal paths before sharing. Nothing is uploaded automatically.
 
-В R11 проверены передача аргументов и кодов ошибок, сохранность настроек
-устройства, обработка шейдеров и одновременное создание одного полного отчёта.
-Из 199 записанных модулей исправление применяется к двум; полученный код проходит
-проверку SPIR-V. Отдельный тест на RTX 4060 Ti воспроизводит гонку общей памяти
-до исправления и выполняется без неё после, возвращая все 256 ожидаемых значений.
-Обе обнаруженные гонки также исчезли в короткой проверке запуска игры.
-[Подробности R11](docs/R11-DEVICE-SAFETY.md).
+## Source and build
 
-Полный матч и исходный вылет после матча на R11 повторно не проверялись.
-Связь исправленных гонок со всеми случаями `DeviceLost` пока не установлена.
-Ошибка не скрывается: при её повторении сохраняется отчёт, а исходная обработка
-вылета остаётся. Сборка не гарантирует устранение всех вылетов эмулятора.
+- [`launcher/`](launcher/): C# launcher, translations, native adapters and packager.
+- [`BUILD.md`](docs/BUILD.md): the supported build from a pinned original runtime.
+- [`emulator-source/`](emulator-source/): available NHL24 PC / shadPS4 source snapshot
+  with source equivalents of the compatibility fixes. Some upstream dependencies
+  are absent from this snapshot; the documented runtime-adapter build is distinct
+  from a complete CMake source build.
 
-R6 ранее прошла проверки кода исправлений, копирования данных на видеокарте
-и сборки из закреплённой исходной версии. Пользователь подтвердил полный
-матч Be a Pro: запуск и выход с результатов в меню карьеры без вылета
-на RTX 4060 Ti. Это проверка одного компьютера и одной игровой сессии.
-Подробности: [VALIDATION.md](docs/VALIDATION.md).
-
-Сохранены проверенные хранение данных в отдельном профиле, перенос карьеры
-с проверкой содержимого и резервное копирование перед заменой профиля.
-
-При повторном вылете нужны свежие `launcher.log` и `user/log/shad_log.txt`
-из раздела «Помощь», новые файлы из «Отчёты о сбоях», модель видеокарты
-и последний игровой момент. Достаточно отчёта после обычной игры;
-отдельно повторять длинный матч ради диагностики не нужно.
-Перед публикацией журналов проверь личные пути в них.
-Лаунчер ничего не отправляет автоматически.
-
-## Исходники и сборка
-
-- [`launcher/`](launcher/): C# лаунчер, нативные модули C, интеграции и упаковщик.
-- [`BUILD.md`](docs/BUILD.md): сборка полного архива из закреплённой исходной версии.
-- [`emulator-source/`](emulator-source/): доступный снимок исходников NHL24 PC /
-  shadPS4 с исходными эквивалентами исправлений. Исследование Pro отмечено
-  отдельно в [R9-PRO-WIP.md](docs/R9-PRO-WIP.md) и выключено в обычной сборке.
-
-Основа: [HajDEO/nhl24pc](https://github.com/HajDEO/nhl24pc) и
+Based on [HajDEO/nhl24pc](https://github.com/HajDEO/nhl24pc) and
 [shadps4-emu/shadPS4](https://github.com/shadps4-emu/shadPS4).
-Лаунчер и эмулятор — GPL-2.0-or-later; авторство и сторонние лицензии сохранены.
-Библиотеки Microsoft Visual C++ распространяются на своих условиях.
-Проект не связан с EA или Sony.
+Launcher and emulator: GPL-2.0-or-later. Original authorship and third-party
+licenses are retained. Microsoft Visual C++ libraries have their own terms.
+This project is not affiliated with EA or Sony.

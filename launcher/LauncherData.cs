@@ -31,12 +31,12 @@ internal sealed class LauncherData {
         string cacheRoot = UserFile("cache");
         string backup = Path.Combine(DataRoot, "backups", "shader-cache-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N"));
         if (Directory.Exists(cacheRoot) && (File.GetAttributes(cacheRoot) & FileAttributes.ReparsePoint) != 0)
-            throw new IOException("Папка кэша является ссылкой. Перед обновлением проверь её расположение через «Помощь».");
+            throw new IOException(LauncherText.T("Папка кэша является ссылкой. Перед обновлением проверь её расположение через «Помощь»."));
         foreach (string name in new[] { "CUSA37933", "CUSA37933.zip" }) {
             string source = Path.Combine(cacheRoot, name);
             if (!File.Exists(source) && !Directory.Exists(source)) continue;
             if ((File.GetAttributes(source) & FileAttributes.ReparsePoint) != 0)
-                throw new IOException("Кэш NHL 24 является ссылкой. Не удалось безопасно пересоздать его.");
+                throw new IOException(LauncherText.T("Кэш NHL 24 является ссылкой. Не удалось безопасно пересоздать его."));
             Directory.CreateDirectory(backup);
             string destination = Path.Combine(backup, name);
             if (Directory.Exists(source)) Directory.Move(source, destination);
@@ -54,18 +54,18 @@ internal sealed class LauncherData {
     public void EnsureReady() {
         if (!File.Exists(Path.Combine(InstallRoot, "defaults", "config.json")) ||
             !File.Exists(Path.Combine(InstallRoot, "defaults", "patches", "nhl24.xml")))
-            throw new IOException("В комплекте нет начальных настроек. Распакуй полный архив лаунчера целиком.");
+            throw new IOException(LauncherText.T("В комплекте нет начальных настроек. Распакуй полный архив лаунчера целиком."));
         Directory.CreateDirectory(DataRoot);
         string marker = Path.Combine(DataRoot, "profile.json");
         string legacy = Path.Combine(InstallRoot, "user");
         if (!File.Exists(marker) && !HasSaves(UserRoot) && File.Exists(Path.Combine(legacy, "config.json"))) {
             ImportLegacy(legacy, false);
-            StartupMessage = "Карьера перенесена из предыдущей версии. Всё готово к игре.";
+            StartupMessage = LauncherText.T("Карьера перенесена из предыдущей версии. Всё готово к игре.");
             return;
         }
         EnsureAssets(UserRoot);
         if (!File.Exists(marker)) WriteJson(marker, new Dictionary<string, object> { { "storage_version", 4 } });
-        StartupMessage = "Готово к запуску.";
+        StartupMessage = LauncherText.T("Готово к запуску.");
     }
 
     public static bool HasSaves(string userRoot) {
@@ -79,15 +79,15 @@ internal sealed class LauncherData {
         if (File.Exists(Path.Combine(folder, "config.json")) && Directory.Exists(Path.Combine(folder, "home"))) return folder;
         folder = Path.Combine(folder, "user");
         if (File.Exists(Path.Combine(folder, "config.json")) && Directory.Exists(Path.Combine(folder, "home"))) return folder;
-        throw new IOException("В выбранной папке не найдены настройки и папка home. Выбери старую папку лаунчера или её папку user.");
+        throw new IOException(LauncherText.T("В выбранной папке не найдены настройки и папка home. Выбери старую папку лаунчера или её папку user."));
     }
 
     public void ImportLegacy(string selected, bool replaceExisting) {
         string source = ResolveLegacy(selected);
         if (Inside(source, DataRoot) || Inside(DataRoot, source))
-            throw new IOException("Выбери отдельную старую установку, а не текущую папку данных AppData.");
+            throw new IOException(LauncherText.T("Выбери отдельную старую установку, а не текущую папку данных AppData."));
         if (HasSaves(UserRoot) && !replaceExisting)
-            throw new IOException("В AppData уже есть сохранения. Автоматический перенос не заменяет существующую карьеру.");
+            throw new IOException(LauncherText.T("В AppData уже есть сохранения. Автоматический перенос не заменяет существующую карьеру."));
         Directory.CreateDirectory(DataRoot);
         string staging = Path.Combine(DataRoot, "import-" + Guid.NewGuid().ToString("N"));
         string backup = Path.Combine(DataRoot, "backups", "before-import-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N"));
@@ -102,7 +102,7 @@ internal sealed class LauncherData {
                     object value;
                     if (!general.TryGetValue(pair[0], out value) || string.IsNullOrWhiteSpace(Convert.ToString(value))) continue;
                     string external = ExternalPath(Convert.ToString(value), source);
-                    if (pair[0] == "home_dir" && !Directory.Exists(external)) throw new IOException("Не найдена внешняя папка сохранений старого профиля. Подключи её перед переносом.");
+                    if (pair[0] == "home_dir" && !Directory.Exists(external)) throw new IOException(LauncherText.T("Не найдена внешняя папка сохранений старого профиля. Подключи её перед переносом."));
                     if (Directory.Exists(external) && !string.Equals(external.TrimEnd(Path.DirectorySeparatorChar), Path.Combine(source, pair[1]).TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase)) omittedRoots.Add(pair[1]);
                 }
             }
@@ -116,7 +116,7 @@ internal sealed class LauncherData {
         }
         foreach (var entry in hashes) {
             if (Hash(Path.Combine(staging, entry.Key)) != entry.Value)
-                throw new IOException("Перенос остановлен: не совпала копия файла " + entry.Key);
+                throw new IOException(LauncherText.T("Перенос остановлен: не совпала копия файла ") + entry.Key);
         }
         if (generalValue is Dictionary<string, object>) {
             var general = (Dictionary<string, object>)generalValue;
@@ -141,7 +141,7 @@ internal sealed class LauncherData {
             { "storage_version", 4 }, { "imported_utc", DateTime.UtcNow.ToString("o") },
             { "source", source }, { "verified_files", hashes.Count }, { "backup", backedUp ? backup : "" }
         });
-        StartupMessage = "Данные перенесены. Старая папка и резервная копия сохранены.";
+        StartupMessage = LauncherText.T("Данные перенесены. Старая папка и резервная копия сохранены.");
     }
 
     void ImportExternal(Dictionary<string, object> general, string key, string name, string source, string staging, Dictionary<string, string> hashes) {
@@ -150,7 +150,7 @@ internal sealed class LauncherData {
         string external = ExternalPath(Convert.ToString(value), source);
         if (!Directory.Exists(external) || string.Equals(external.TrimEnd(Path.DirectorySeparatorChar), Path.Combine(source, name).TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase)) return;
         if (Inside(external, DataRoot) || Inside(DataRoot, external))
-            throw new IOException("Внешняя папка старого профиля пересекается с текущей AppData: " + key);
+            throw new IOException(LauncherText.T("Внешняя папка старого профиля пересекается с текущей AppData: ") + key);
         CopyTree(external, Path.Combine(staging, name), external, hashes, false, name);
     }
 
@@ -159,7 +159,7 @@ internal sealed class LauncherData {
         // The old portable emulator resolved configured paths from its launcher
         // working directory, which is the parent of user, not user itself.
         if (!string.Equals(Path.GetFileName(source), "user", StringComparison.OrdinalIgnoreCase))
-            throw new IOException("В старом профиле указан относительный путь к данным. Укажи в его настройках полный путь перед переносом.");
+            throw new IOException(LauncherText.T("В старом профиле указан относительный путь к данным. Укажи в его настройках полный путь перед переносом."));
         return Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source), value));
     }
 
@@ -175,16 +175,16 @@ internal sealed class LauncherData {
 
     static void CopyTree(string source, string destination, string relativeRoot, Dictionary<string, string> hashes, bool skipTransient, string prefix = "", HashSet<string> omittedRoots = null) {
         if ((File.GetAttributes(source) & FileAttributes.ReparsePoint) != 0)
-            throw new IOException("Перенос остановлен: папка является ссылкой. Выбери исходную папку данных.");
+            throw new IOException(LauncherText.T("Перенос остановлен: папка является ссылкой. Выбери исходную папку данных."));
         Directory.CreateDirectory(destination);
         foreach (string file in Directory.GetFiles(source)) {
             if ((File.GetAttributes(file) & FileAttributes.ReparsePoint) != 0)
-                throw new IOException("Перенос остановлен: обнаружена ссылка на файл.");
+                throw new IOException(LauncherText.T("Перенос остановлен: обнаружена ссылка на файл."));
             string relative = file.Substring(relativeRoot.TrimEnd(Path.DirectorySeparatorChar).Length + 1);
             if (prefix.Length != 0) relative = Path.Combine(prefix, relative);
             string expected = Hash(file);
             File.Copy(file, Path.Combine(destination, Path.GetFileName(file)), true);
-            if (Hash(file) != expected) throw new IOException("Старая папка изменилась во время переноса. Закрой игру и повтори.");
+            if (Hash(file) != expected) throw new IOException(LauncherText.T("Старая папка изменилась во время переноса. Закрой игру и повтори."));
             hashes[relative] = expected;
         }
         foreach (string directory in Directory.GetDirectories(source)) {
@@ -204,7 +204,7 @@ internal sealed class LauncherData {
 
     public static Dictionary<string, object> ReadJson(string file) {
         var result = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(File.ReadAllText(file));
-        if (result == null) throw new IOException("Не удалось прочитать настройки: " + file);
+        if (result == null) throw new IOException(LauncherText.T("Не удалось прочитать настройки: ") + file);
         return result;
     }
 

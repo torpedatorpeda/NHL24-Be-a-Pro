@@ -1,3 +1,16 @@
+# R12 English/Russian interface checks
+
+- `launcher/tests/ValidateLanguage.cs` passes 32 checks in an isolated profile:
+  Windows-language defaults, live switching and restart persistence, unsaved
+  FSR/RCAS values, disabled graphics controls during play, localized tooltips,
+  dynamic crash codes, English storage errors and damaged-preference recovery.
+- Language-only changes leave the career, emulator config and launcher graphics
+  settings byte-for-byte unchanged. Unknown UI preference fields survive updates.
+  Import continues to use the existing profile flow; language is stored outside it.
+- The supported complete R12 build succeeds. Its runtime core is byte-identical
+  to R11 (`7da683cce9a6fbe4c7a56b9a6b762d80c6561f455e6b6fd4d60274afa3155d14`).
+  This release makes no new crash-fix or graphics-quality claims.
+
 # R11 GPU safety and fault-report checks
 
 - All six mapped runtime dispatch thunks preserve arguments and results.
